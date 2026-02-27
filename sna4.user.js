@@ -202,9 +202,7 @@
         document.head.appendChild(meta);
 
         try {
-            console.log('[SNA4] Fetching: ' + FILES.html);
-            console.log('[SNA4] Fetching: ' + FILES.css);
-            console.log('[SNA4] Fetching: ' + FILES.js);
+            console.log('[SNA4] Fetching files...');
 
             var results = await Promise.all([
                 fetchFile(FILES.html),
@@ -216,21 +214,35 @@
             var css = results[1];
             var js = results[2];
 
+            // Inject CSS
             GM_addStyle(css);
-            document.body.innerHTML = html;
+            console.log('[SNA4] ✅ CSS injected');
 
-            var script = document.createElement('script');
-            script.textContent = js;
-            document.body.appendChild(script);
+            // Inject HTML
+            document.body.innerHTML = html;
+            console.log('[SNA4] ✅ HTML injected');
+
+            // Execute JS in Tampermonkey context (NOT as <script> tag)
+            // This gives app.js access to GM_ functions
+            try {
+                new Function(
+                    'GM_setValue',
+                    'GM_getValue',
+                    'GM_xmlhttpRequest',
+                    js
+                )(GM_setValue, GM_getValue, GM_xmlhttpRequest);
+                console.log('[SNA4] ✅ JS executed');
+            } catch (jsErr) {
+                console.error('[SNA4] ❌ JS execution error:', jsErr);
+            }
 
             console.log('[SNA4] 🚀 Boot complete');
 
         } catch (err) {
             console.error('[SNA4] Boot failed:', err);
-            document.body.innerHTML = '<div style="padding:40px;font-family:sans-serif;max-width:600px;margin:auto;"><h1 style="color:red;">Failed to Load SNA4</h1><pre style="background:#f5f5f5;padding:16px;border-radius:8px;margin:16px 0;">' + err + '</pre><p>Expected URLs:</p><pre style="background:#f5f5f5;padding:16px;border-radius:8px;font-size:12px;">' + FILES.html + '\n' + FILES.css + '\n' + FILES.js + '</pre></div>';
+            document.body.innerHTML = '<div style="padding:40px;font-family:sans-serif;max-width:600px;margin:auto;"><h1 style="color:red;">Failed to Load SNA4</h1><pre style="background:#f5f5f5;padding:16px;border-radius:8px;margin:16px 0;">' + err + '</pre></div>';
         }
     }
-
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', boot);
     } else {
