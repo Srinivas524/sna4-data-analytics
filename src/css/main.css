@@ -1,0 +1,58 @@
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+    --primary: #0073bb;
+    --bg: #f4f6f9;
+    --sidebar: #1a1a2e;
+    --white: #ffffff;
+    --text: #333;
+    --muted: #888;
+    --border: #e0e0e0;
+    --radius: 8px;
+    --shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+}
+
+.sna4-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 24px;
+    background: var(--white);
+    border-bottom: 1px solid var(--border);
+    box-shadow: var(--shadow);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+}
+
+.header-left { display: flex; align-items: center; gap: 12px; }
+.header-left h1 { font-size: 20px; color: var(--primary); }
+.version-badge { background: var(--primary); color: white; font-size: 11px; padding: 2px 8px; border-radius: 12px; }
+.header-right { display: flex; align-items: center; gap: 12px; }
+.header-right input { padding: 8px 14px; border: 1px solid var(--border); border-radius: var(--radius); width: 250px; }
+.header-right button { background: none; border: none; font-size: 18px; cursor: pointer; }
+
+.sna4-layout { display: flex; min-height: calc(100vh - 56px); }
+
+.sna4-sidebar { width: 220px; background: var(--sidebar); padding: 16px 0; }
+.sna4-sidebar ul { list-style: none; }
+.sna4-sidebar li { padding: 12px 24px; color: #ccc; cursor: pointer; border-left: 3px solid transparent; }
+.sna4-sidebar li:hover { background: #16213e; color: #fff; }
+.sna4-sidebar li.active { background: #16213e; color: #fff; border-left-color: var(--primary); }
+
+.sna4-main { flex: 1; padding: 24px; }
+
+.page { display: none; }
+.page.active { display: block; }
+.page h2 { font-size: 22px; margin-bottom: 20px; }
+
+.card-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; }
+.card { background: var(--white); border-radius: var(--radius); padding: 20px; box-shadow: var(--shadow); border: 1px solid var(--border); }
+.card h3 { font-size: 12px; text-transform: uppercase; color: var(--muted); margin-bottom: 8px; }
+.stat { font-size: 32px; font-weight: 700; color: var(--primary); }
