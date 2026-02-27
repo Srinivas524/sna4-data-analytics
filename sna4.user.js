@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         SNA4 Data Analytics & Automation
 // @namespace    https://amazon.sharepoint.com/sites/TackAnalysis
-// @version      1.0.1
+// @version      1.0.2
 // @description  Custom UI — loaded from SharePoint Document Library
 // @author       Srinivas - SNA4 Team
 // @match        https://amazon.sharepoint.com/sites/TackAnalysis/SitePages/CollabHome.aspx*
@@ -19,7 +19,7 @@
     'use strict';
 
     // ═══════════════════════════════════════════════
-    //  HARDCODED URLS — NO CONCATENATION
+    //  HARDCODED URLS
     // ═══════════════════════════════════════════════
     const FILES = {
         html: 'https://amazon.sharepoint.com/sites/TackAnalysis/SNA4_UI/index.html',
@@ -30,13 +30,21 @@
     const SP_SITE = 'https://amazon.sharepoint.com/sites/TackAnalysis';
 
     // ═══════════════════════════════════════════════
-    //  BLOCK SHAREPOINT
+    //  BLOCK SHAREPOINT + KILL LEAKS
     // ═══════════════════════════════════════════════
     const spBlocker = new MutationObserver((mutations) => {
         mutations.forEach((m) => {
             m.addedNodes.forEach((node) => {
                 if (node.tagName === 'LINK' || node.tagName === 'STYLE') {
                     node.remove();
+                }
+                if (node.nodeType === 1 && node.id !== 'aa-tracker-app') {
+                    var ourApp = document.getElementById('aa-tracker-app');
+                    if (ourApp && !ourApp.contains(node) && node !== ourApp) {
+                        if (!document.head.contains(node)) {
+                            node.remove();
+                        }
+                    }
                 }
             });
         });
@@ -95,7 +103,7 @@
                 },
                 onload: (r) => {
                     try {
-                        const data = JSON.parse(r.responseText);
+                        var data = JSON.parse(r.responseText);
                         resolve(data.d.GetContextWebInformation.FormDigestValue);
                     } catch (e) { reject(e); }
                 },
@@ -107,7 +115,7 @@
     window.spPost = function (endpoint, body) {
         return new Promise(async (resolve, reject) => {
             try {
-                const digest = await window.spGetDigest();
+                var digest = await window.spGetDigest();
                 GM_xmlhttpRequest({
                     method: 'POST',
                     url: SP_SITE + endpoint,
@@ -130,7 +138,7 @@
     window.spUpdate = function (endpoint, body, etag) {
         return new Promise(async (resolve, reject) => {
             try {
-                const digest = await window.spGetDigest();
+                var digest = await window.spGetDigest();
                 GM_xmlhttpRequest({
                     method: 'POST',
                     url: SP_SITE + endpoint,
@@ -152,7 +160,7 @@
     window.spDelete = function (endpoint) {
         return new Promise(async (resolve, reject) => {
             try {
-                const digest = await window.spGetDigest();
+                var digest = await window.spGetDigest();
                 GM_xmlhttpRequest({
                     method: 'POST',
                     url: SP_SITE + endpoint,
@@ -187,6 +195,21 @@
     window.GM_xmlhttpRequest_proxy = GM_xmlhttpRequest;
 
     // ═══════════════════════════════════════════════
+    //  SHAREPOINT LEAK CLEANER
+    // ═══════════════════════════════════════════════
+    function cleanSharePointLeaks() {
+        var body = document.body;
+        var ourApp = document.getElementById('aa-tracker-app');
+        if (!ourApp) return;
+
+        Array.from(body.children).forEach(function (child) {
+            if (child !== ourApp && child.tagName !== 'SCRIPT' && child.tagName !== 'STYLE') {
+                child.remove();
+            }
+        });
+    }
+
+    // ═══════════════════════════════════════════════
     //  BOOT
     // ═══════════════════════════════════════════════
     async function boot() {
@@ -214,15 +237,12 @@
             var css  = results[1];
             var js   = results[2];
 
-            // Inject CSS
             GM_addStyle(css);
             console.log('[SNA4] ✅ CSS injected');
 
-            // Inject HTML
             document.body.innerHTML = html;
             console.log('[SNA4] ✅ HTML injected');
 
-            // Execute JS inside Tampermonkey sandbox
             try {
                 eval(js);
                 console.log('[SNA4] ✅ JS executed');
@@ -233,11 +253,27 @@
 
             console.log('[SNA4] 🚀 Boot complete');
 
+            // Clean SharePoint leaks now and keep watching
+            cleanSharePointLeaks();
+            setTimeout(cleanSharePointLeaks, 500);
+            setTimeout(cleanSharePointLeaks, 1000);
+            setTimeout(cleanSharePointLeaks, 2000);
+            setTimeout(cleanSharePointLeaks, 5000);
+
+            var leakWatcher = new MutationObserver(function () {
+                cleanSharePointLeaks();
+            });
+            leakWatcher.observe(document.body, { childList: true });
+
         } catch (err) {
             console.error('[SNA4] Boot failed:', err);
-            document.body.innerHTML = '<div style="padding:40px;font-family:sans-serif;max-width:600px;margin:auto;"><h1 style="color:red;">Failed to Load SNA4</h1><pre style="background:#f5f5f5;padding:16px;border-radius:8px;margin:16px 0;">' + err + '</pre></div>';
+            document.body.innerHTML = '<div style="padding:40px;font-family:sans-serif;max-width:600px;margin:auto;"><h1 style="color:red;">Failed to Load SNA4</h1><pre style="background:#f5f5f5;padding:16px;border-radius:8px;margin:16px 0;">' + err + '</pre><p>Expected URLs:</p><pre style="background:#f5f5f5;padding:16px;border-radius:8px;font-size:12px;">' + FILES.html + '\n' + FILES.css + '\n' + FILES.js + '</pre></div>';
         }
     }
+
+    // ═══════════════════════════════════════════════
+    //  TRIGGER
+    // ═══════════════════════════════════════════════
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', boot);
     } else {
