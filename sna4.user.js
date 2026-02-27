@@ -22,7 +22,7 @@
     //  CONFIGURATION — CHANGE THESE IF NEEDED
     // ═══════════════════════════════════════════════
     const SP_SITE = 'https://amazon.sharepoint.com/sites/TackAnalysis';
-    const UI_LIB  = '/sites/TackAnalysis/SNA4_UI';
+    const UI_LIB  = '/SNA4_UI';
 
     const FILES = {
         html: `${SP_SITE}${UI_LIB}/index.html`,
