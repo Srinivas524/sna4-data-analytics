@@ -211,8 +211,8 @@
             ]);
 
             var html = results[0];
-            var css = results[1];
-            var js = results[2];
+            var css  = results[1];
+            var js   = results[2];
 
             // Inject CSS
             GM_addStyle(css);
@@ -222,18 +222,13 @@
             document.body.innerHTML = html;
             console.log('[SNA4] ✅ HTML injected');
 
-            // Execute JS in Tampermonkey context (NOT as <script> tag)
-            // This gives app.js access to GM_ functions
+            // Execute JS inside Tampermonkey sandbox
             try {
-                new Function(
-                    'GM_setValue',
-                    'GM_getValue',
-                    'GM_xmlhttpRequest',
-                    js
-                )(GM_setValue, GM_getValue, GM_xmlhttpRequest);
+                eval(js);
                 console.log('[SNA4] ✅ JS executed');
             } catch (jsErr) {
-                console.error('[SNA4] ❌ JS execution error:', jsErr);
+                console.error('[SNA4] ❌ JS error:', jsErr);
+                console.error(jsErr.stack);
             }
 
             console.log('[SNA4] 🚀 Boot complete');
