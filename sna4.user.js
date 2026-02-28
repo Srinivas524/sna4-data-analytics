@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         SNA4 Data Analytics — Bootloader
 // @namespace    http://tampermonkey.net/
-// @version      2.1
+// @version      2.2
 // @description  Multi-page bootloader — hijacks SharePoint pages and loads SNA4 Data Analytics suite
 // @match        https://amazon.sharepoint.com/sites/TackAnalysis/SitePages/Home.aspx
 // @match        https://amazon.sharepoint.com/sites/TackAnalysis/SitePages/TaktTimeStudy.aspx
@@ -13,6 +13,7 @@
 // @connect      amazon.sharepoint.com
 // @connect      raw.githubusercontent.com
 // @connect      fclm-portal.amazon.com
+// @connect      hooks.slack.com
 // @updateURL    https://raw.githubusercontent.com/Srinivas524/sna4-data-analytics/main/sna4.user.js
 // @downloadURL  https://raw.githubusercontent.com/Srinivas524/sna4-data-analytics/main/sna4.user.js
 // ==/UserScript==
@@ -24,7 +25,7 @@
   // CONFIGURATION
   // ══════════════════════════════════════════════════════════
 
-  var BOOT_VERSION = '2.1';
+  var BOOT_VERSION = '2.2';
   var APP_NAME = 'SNA4 Data Analytics';
 
   var SP_BASE = 'https://amazon.sharepoint.com/sites/TackAnalysis';
