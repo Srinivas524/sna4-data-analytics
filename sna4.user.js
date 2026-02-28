@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         SNA4 Data Analytics — Bootloader
 // @namespace    http://tampermonkey.net/
-// @version      2.0
+// @version      2.1
 // @description  Multi-page bootloader — hijacks SharePoint pages and loads SNA4 Data Analytics suite
 // @match        https://amazon.sharepoint.com/sites/TackAnalysis/SitePages/Home.aspx
 // @match        https://amazon.sharepoint.com/sites/TackAnalysis/SitePages/TaktTimeStudy.aspx
@@ -12,6 +12,7 @@
 // @grant        GM_xmlhttpRequest
 // @connect      amazon.sharepoint.com
 // @connect      raw.githubusercontent.com
+// @connect      fclm-portal.amazon.com
 // @updateURL    https://raw.githubusercontent.com/Srinivas524/sna4-data-analytics/main/sna4.user.js
 // @downloadURL  https://raw.githubusercontent.com/Srinivas524/sna4-data-analytics/main/sna4.user.js
 // ==/UserScript==
@@ -23,7 +24,7 @@
   // CONFIGURATION
   // ══════════════════════════════════════════════════════════
 
-  var BOOT_VERSION = '2.0';
+  var BOOT_VERSION = '2.1';
   var APP_NAME = 'SNA4 Data Analytics';
 
   var SP_BASE = 'https://amazon.sharepoint.com/sites/TackAnalysis';
@@ -42,7 +43,7 @@
     },
     'takt': {
       patterns: ['/sitepages/takttimestudy.aspx', '/sitepages/collabhome.aspx'],
-      title: 'Takt Time Study — SNA4',
+      title: 'Takt Time Study \u2014 SNA4',
       files: {
         html: FILE_BASE + '/takt/index.html',
         css:  FILE_BASE + '/takt/main.css',
@@ -51,7 +52,7 @@
     },
     'inferred': {
       patterns: ['/sitepages/inferredanalysis.aspx'],
-      title: 'Inferred Time Analysis — SNA4',
+      title: 'Inferred Time Analysis \u2014 SNA4',
       files: {
         html: FILE_BASE + '/inferred/inferred.html',
         css:  FILE_BASE + '/inferred/inferred.css',
@@ -88,25 +89,13 @@
 
   // If we can't detect the page, bail out
   if (!CURRENT_PAGE) {
-    console.warn('[SNA4 BOOT] Unknown page — bootloader inactive');
+    console.warn('[SNA4 BOOT] Unknown page \u2014 bootloader inactive');
     return;
   }
 
   var PAGE_CONFIG = PAGE_MAP[CURRENT_PAGE];
 
   console.log('[SNA4 BOOT] Detected page: ' + CURRENT_PAGE + ' (' + PAGE_CONFIG.title + ')');
-
-  // ── LEGACY REDIRECT ────────────────────────────────────
-  // CollabHome.aspx → redirect to TaktTimeStudy.aspx
-  // This runs ONLY if user directly navigates to old URL
-  // The pattern match above already maps CollabHome → 'takt'
-  // But if you want a hard redirect instead, uncomment below:
-  /*
-  if (window.location.pathname.toLowerCase().indexOf('collabhome.aspx') > -1) {
-    window.location.replace(SP_BASE + '/SitePages/TaktTimeStudy.aspx');
-    return;
-  }
-  */
 
   // ── EXPOSE GLOBALS FOR COMMON.JS AND PAGE JS ───────────
   window.TAKT_BOOT_VERSION = BOOT_VERSION;
@@ -360,7 +349,7 @@
       // ── PHASE 5: Execute page-specific JS ─────────────
       try {
         eval(files.pageJS);
-        console.log('[SNA4 BOOT] \u2705 Page JS executed — ' + CURRENT_PAGE + ' initialized');
+        console.log('[SNA4 BOOT] \u2705 Page JS executed \u2014 ' + CURRENT_PAGE + ' initialized');
       } catch (err) {
         console.error('[SNA4 BOOT] Page JS error:', err);
         showBootError('Page JavaScript Error', CURRENT_PAGE + ': ' + err.message);
@@ -370,7 +359,7 @@
       // ── PHASE 6: Clean up SharePoint leaks ────────────
       startLeakCleaner();
 
-      console.log('[SNA4 BOOT] \u2705 Boot complete — ' + PAGE_CONFIG.title);
+      console.log('[SNA4 BOOT] \u2705 Boot complete \u2014 ' + PAGE_CONFIG.title);
 
     }).catch(function (err) {
       console.error('[SNA4 BOOT] File fetch failed:', err);
