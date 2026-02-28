@@ -1,283 +1,215 @@
 // ==UserScript==
-// @name         SNA4 Data Analytics & Automation
-// @namespace    https://amazon.sharepoint.com/sites/TackAnalysis
-// @version      1.0.2
-// @description  Custom UI — loaded from SharePoint Document Library
-// @author       Srinivas - SNA4 Team
-// @match        https://amazon.sharepoint.com/sites/TackAnalysis/SitePages/CollabHome.aspx*
+// @name         SNA4 Takt Time Study — Bootloader
+// @namespace    http://tampermonkey.net/
+// @version      1.0
+// @description  Bootloader — hijacks SharePoint page and loads Takt Time Study app
+// @match        https://amazon.sharepoint.com/sites/TackAnalysis/SitePages/CollabHome.aspx
 // @run-at       document-start
 // @grant        GM_addStyle
 // @grant        GM_xmlhttpRequest
-// @grant        GM_setValue
-// @grant        GM_getValue
 // @connect      amazon.sharepoint.com
-// @connect      fclm-portal.amazon.com
-// @connect      hooks.slack.com
-// @connect      raw.githubusercontent.com 
+// @connect      raw.githubusercontent.com
+// @updateURL    https://raw.githubusercontent.com/Srinivas524/sna4-data-analytics/main/sna4.user.js
+// @downloadURL  https://raw.githubusercontent.com/Srinivas524/sna4-data-analytics/main/sna4.user.js
 // ==/UserScript==
 
 (function () {
-    'use strict';
+  'use strict';
 
-    // ═══════════════════════════════════════════════
-    //  HARDCODED URLS
-    // ═══════════════════════════════════════════════
-    const FILES = {
-        html: 'https://amazon.sharepoint.com/sites/TackAnalysis/SNA4_UI/index.html',
-        css:  'https://amazon.sharepoint.com/sites/TackAnalysis/SNA4_UI/css/main.css',
-        js:   'https://amazon.sharepoint.com/sites/TackAnalysis/SNA4_UI/js/app.js'
-    };
+  // ── CONFIGURATION ──────────────────────────────────────
+  var BOOT_VERSION = '1.0';
+  var APP_NAME = 'SNA4 Takt Time Study';
 
-    const SP_SITE = 'https://amazon.sharepoint.com/sites/TackAnalysis';
+  var SP_BASE = 'https://amazon.sharepoint.com/sites/TackAnalysis';
+  var FILE_BASE = SP_BASE + '/SNA4_UI';
 
-    // ═══════════════════════════════════════════════
-    //  BLOCK SHAREPOINT + KILL LEAKS
-    // ═══════════════════════════════════════════════
-    const spBlocker = new MutationObserver((mutations) => {
-        mutations.forEach((m) => {
-            m.addedNodes.forEach((node) => {
-                if (node.tagName === 'LINK' || node.tagName === 'STYLE') {
-                    node.remove();
-                }
-                if (node.nodeType === 1 && node.id !== 'aa-tracker-app') {
-                    var ourApp = document.getElementById('aa-tracker-app');
-                    if (ourApp && !ourApp.contains(node) && node !== ourApp) {
-                        if (!document.head.contains(node)) {
-                            node.remove();
-                        }
-                    }
-                }
-            });
-        });
-    });
+  var FILES = {
+    html: FILE_BASE + '/index.html',
+    css:  FILE_BASE + '/css/main.css',
+    js:   FILE_BASE + '/js/app.js'
+  };
+
+  var ROOT_ID = 'takt-root';
+
+  // ── EXPOSE GLOBALS FOR APP.JS ──────────────────────────
+  window.TAKT_BOOT_VERSION = BOOT_VERSION;
+  window.TAKT_GITHUB_RAW = 'https://raw.githubusercontent.com/Srinivas524/sna4-data-analytics/main/sna4.user.js';
+
+  window.GM_xmlhttpRequest_proxy = GM_xmlhttpRequest;
+
+  window.SP_CONFIG = {
+    site: SP_BASE,
+    lists: {
+      associates:     '9641b5b6-860a-40ad-898a-52224e6a68a3',
+      observations:   'fc8a85eb-97e7-48e0-b02a-be81e072a1d1',
+      dailySummaries: '3ccf4961-ff7f-4cad-b677-f68be5d8fbbe',
+      processAvgs:    '5768158e-ac61-49fe-823f-3306a3767d67'
+    },
+    listUrl: function (listName) {
+      return this.site + "/_api/web/lists(guid'" + this.lists[listName] + "')";
+    }
+  };
+
+  // ── SHAREPOINT BLOCKER ─────────────────────────────────
+  var spBlocker = new MutationObserver(function (mutations) {
+    for (var i = 0; i < mutations.length; i++) {
+      var nodes = mutations[i].addedNodes;
+      for (var j = 0; j < nodes.length; j++) {
+        var node = nodes[j];
+        if (node.nodeType !== 1) continue;
+        var tag = node.tagName;
+        if (tag === 'LINK' || tag === 'STYLE' || tag === 'SCRIPT') {
+          node.remove();
+        }
+      }
+    }
+  });
+  if (document.documentElement) {
     spBlocker.observe(document.documentElement, { childList: true, subtree: true });
+  }
 
-    // ═══════════════════════════════════════════════
-    //  FILE FETCHER
-    // ═══════════════════════════════════════════════
-    function fetchFile(url) {
-        return new Promise((resolve, reject) => {
-            GM_xmlhttpRequest({
-                method: 'GET',
-                url: url,
-                headers: {
-                    'Accept': 'text/html,text/css,application/javascript,*/*'
-                },
-                onload: (res) => {
-                    if (res.status === 200) {
-                        resolve(res.responseText);
-                    } else {
-                        reject('HTTP ' + res.status + ' for ' + url);
-                    }
-                },
-                onerror: (err) => reject('Network error: ' + url)
-            });
-        });
-    }
-
-    // ═══════════════════════════════════════════════
-    //  SP API HELPERS
-    // ═══════════════════════════════════════════════
-    window.spGet = function (endpoint) {
-        return new Promise((resolve, reject) => {
-            GM_xmlhttpRequest({
-                method: 'GET',
-                url: SP_SITE + endpoint,
-                headers: { 'Accept': 'application/json;odata=verbose' },
-                onload: (r) => {
-                    try { resolve(JSON.parse(r.responseText)); }
-                    catch (e) { reject(e); }
-                },
-                onerror: reject
-            });
-        });
-    };
-
-    window.spGetDigest = function () {
-        return new Promise((resolve, reject) => {
-            GM_xmlhttpRequest({
-                method: 'POST',
-                url: SP_SITE + '/_api/contextinfo',
-                headers: {
-                    'Accept': 'application/json;odata=verbose',
-                    'Content-Type': 'application/json;odata=verbose'
-                },
-                onload: (r) => {
-                    try {
-                        var data = JSON.parse(r.responseText);
-                        resolve(data.d.GetContextWebInformation.FormDigestValue);
-                    } catch (e) { reject(e); }
-                },
-                onerror: reject
-            });
-        });
-    };
-
-    window.spPost = function (endpoint, body) {
-        return new Promise(async (resolve, reject) => {
-            try {
-                var digest = await window.spGetDigest();
-                GM_xmlhttpRequest({
-                    method: 'POST',
-                    url: SP_SITE + endpoint,
-                    headers: {
-                        'Accept': 'application/json;odata=verbose',
-                        'Content-Type': 'application/json;odata=verbose',
-                        'X-RequestDigest': digest
-                    },
-                    data: JSON.stringify(body),
-                    onload: (r) => {
-                        try { resolve(JSON.parse(r.responseText)); }
-                        catch (e) { resolve(r.responseText); }
-                    },
-                    onerror: reject
-                });
-            } catch (e) { reject(e); }
-        });
-    };
-
-    window.spUpdate = function (endpoint, body, etag) {
-        return new Promise(async (resolve, reject) => {
-            try {
-                var digest = await window.spGetDigest();
-                GM_xmlhttpRequest({
-                    method: 'POST',
-                    url: SP_SITE + endpoint,
-                    headers: {
-                        'Accept': 'application/json;odata=verbose',
-                        'Content-Type': 'application/json;odata=verbose',
-                        'X-RequestDigest': digest,
-                        'X-HTTP-Method': 'MERGE',
-                        'If-Match': etag || '*'
-                    },
-                    data: JSON.stringify(body),
-                    onload: (r) => resolve(r),
-                    onerror: reject
-                });
-            } catch (e) { reject(e); }
-        });
-    };
-
-    window.spDelete = function (endpoint) {
-        return new Promise(async (resolve, reject) => {
-            try {
-                var digest = await window.spGetDigest();
-                GM_xmlhttpRequest({
-                    method: 'POST',
-                    url: SP_SITE + endpoint,
-                    headers: {
-                        'Accept': 'application/json;odata=verbose',
-                        'X-RequestDigest': digest,
-                        'X-HTTP-Method': 'DELETE',
-                        'If-Match': '*'
-                    },
-                    onload: (r) => resolve(r),
-                    onerror: reject
-                });
-            } catch (e) { reject(e); }
-        });
-    };
-
-    window.SP_CONFIG = {
-        site: SP_SITE,
-        lists: {
-            TaktAssociates:     '9641b5b6-860a-40ad-898a-52224e6a68a3',
-            TaktObservations:   'fc8a85eb-97e7-48e0-b02a-be81e072a1d1',
-            TaktDailySummaries: '3ccf4961-ff7f-4cad-b677-f68be5d8fbbe',
-            TaktProcessAvgs:    '5768158e-ac61-49fe-823f-3306a3767d67'
+  // ── FILE FETCHER ───────────────────────────────────────
+  function fetchFile(url) {
+    return new Promise(function (resolve, reject) {
+      GM_xmlhttpRequest({
+        method: 'GET',
+        url: url + '?_nocache=' + Date.now(),
+        headers: { 'Cache-Control': 'no-cache' },
+        timeout: 15000,
+        onload: function (res) {
+          if (res.status >= 200 && res.status < 400) {
+            resolve(res.responseText);
+          } else {
+            reject(new Error('HTTP ' + res.status + ' for ' + url));
+          }
         },
-        listUrl: function (listName) {
-            return "/_api/web/lists(guid'" + this.lists[listName] + "')";
+        onerror: function (err) { reject(new Error('Network error: ' + url)); },
+        ontimeout: function () { reject(new Error('Timeout: ' + url)); }
+      });
+    });
+  }
+
+  // ── LEAK CLEANER ───────────────────────────────────────
+  function cleanLeaks() {
+    if (!document.body) return;
+    var children = document.body.children;
+    for (var i = children.length - 1; i >= 0; i--) {
+      var child = children[i];
+      if (child.id !== ROOT_ID && child.tagName !== 'SCRIPT' && !child.classList.contains('takt-toast')) {
+        child.remove();
+      }
+    }
+  }
+
+  function startLeakCleaner() {
+    cleanLeaks();
+    setTimeout(cleanLeaks, 500);
+    setTimeout(cleanLeaks, 1000);
+    setTimeout(cleanLeaks, 2000);
+    setTimeout(cleanLeaks, 5000);
+
+    var bodyObserver = new MutationObserver(function (mutations) {
+      for (var i = 0; i < mutations.length; i++) {
+        var nodes = mutations[i].addedNodes;
+        for (var j = 0; j < nodes.length; j++) {
+          var node = nodes[j];
+          if (node.nodeType === 1 && node.id !== ROOT_ID && node.tagName !== 'SCRIPT' && !node.classList.contains('takt-toast')) {
+            node.remove();
+          }
         }
-    };
-
-    window.GM_setValue_proxy = GM_setValue;
-    window.GM_getValue_proxy = GM_getValue;
-    window.GM_xmlhttpRequest_proxy = GM_xmlhttpRequest;
-
-    // ═══════════════════════════════════════════════
-    //  SHAREPOINT LEAK CLEANER
-    // ═══════════════════════════════════════════════
-    function cleanSharePointLeaks() {
-        var body = document.body;
-        var ourApp = document.getElementById('aa-tracker-app');
-        if (!ourApp) return;
-
-        Array.from(body.children).forEach(function (child) {
-            if (child !== ourApp && child.tagName !== 'SCRIPT' && child.tagName !== 'STYLE') {
-                child.remove();
-            }
-        });
+      }
+    });
+    if (document.body) {
+      bodyObserver.observe(document.body, { childList: true });
     }
+  }
 
-    // ═══════════════════════════════════════════════
-    //  BOOT
-    // ═══════════════════════════════════════════════
-    async function boot() {
-        spBlocker.disconnect();
+  // ── BOOT ───────────────────────────────────────────────
+  function boot() {
+    spBlocker.disconnect();
 
-        document.head.innerHTML = '';
-        document.body.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100vh;font-family:sans-serif;color:#555;flex-direction:column;gap:12px;"><div style="width:40px;height:40px;border:4px solid #e0e0e0;border-top:4px solid #0b66c3;border-radius:50%;animation:spin 0.8s linear infinite;"></div><div>Loading SNA4...</div><style>@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}</style></div>';
-        document.title = 'SNA4 Data Analytics & Automation';
+    // Wipe page
+    while (document.head.firstChild) document.head.firstChild.remove();
+    while (document.body && document.body.firstChild) document.body.firstChild.remove();
 
-        var meta = document.createElement('meta');
-        meta.name = 'viewport';
-        meta.content = 'width=device-width, initial-scale=1.0';
-        document.head.appendChild(meta);
+    // Set document basics
+    document.title = APP_NAME;
+    var meta = document.createElement('meta');
+    meta.name = 'viewport';
+    meta.content = 'width=device-width, initial-scale=1.0';
+    document.head.appendChild(meta);
 
-        try {
-            console.log('[SNA4] Fetching files...');
+    // Loading spinner
+    document.body.style.margin = '0';
+    document.body.style.padding = '0';
+    document.body.style.background = '#0f172a';
+    document.body.style.fontFamily = "'Inter', system-ui, sans-serif";
+    document.body.innerHTML =
+      '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;gap:20px;">' +
+        '<div style="width:48px;height:48px;border:4px solid rgba(99,102,241,0.2);border-top-color:#6366f1;border-radius:50%;animation:spin 1s linear infinite;"></div>' +
+        '<div style="color:#e2e8f0;font-size:18px;font-weight:700;letter-spacing:-0.3px;">' + APP_NAME + '</div>' +
+        '<div style="color:#64748b;font-size:13px;">Loading application files...</div>' +
+      '</div>' +
+      '<style>@keyframes spin{to{transform:rotate(360deg)}}</style>';
 
-            var results = await Promise.all([
-                fetchFile(FILES.html),
-                fetchFile(FILES.css),
-                fetchFile(FILES.js)
-            ]);
+    console.log('[TAKT BOOT] Fetching app files...');
 
-            var html = results[0];
-            var css  = results[1];
-            var js   = results[2];
+    // Fetch all files
+    Promise.all([
+      fetchFile(FILES.html),
+      fetchFile(FILES.css),
+      fetchFile(FILES.js)
+    ]).then(function (results) {
+      var htmlContent = results[0];
+      var cssContent = results[1];
+      var jsContent = results[2];
 
-            GM_addStyle(css);
-            console.log('[SNA4] ✅ CSS injected');
+      console.log('[TAKT BOOT] All files loaded, injecting...');
 
-            document.body.innerHTML = html;
-            console.log('[SNA4] ✅ HTML injected');
+      // Inject CSS
+      GM_addStyle(cssContent);
 
-            try {
-                eval(js);
-                console.log('[SNA4] ✅ JS executed');
-            } catch (jsErr) {
-                console.error('[SNA4] ❌ JS error:', jsErr);
-                console.error(jsErr.stack);
-            }
+      // Inject HTML
+      document.body.innerHTML = htmlContent;
 
-            console.log('[SNA4] 🚀 Boot complete');
+      // Execute JS
+      try {
+        eval(jsContent);
+        console.log('[TAKT BOOT] App initialized successfully');
+      } catch (err) {
+        console.error('[TAKT BOOT] JS execution error:', err);
+        showBootError('JavaScript Error', err.message);
+      }
 
-            // Clean SharePoint leaks now and keep watching
-            cleanSharePointLeaks();
-            setTimeout(cleanSharePointLeaks, 500);
-            setTimeout(cleanSharePointLeaks, 1000);
-            setTimeout(cleanSharePointLeaks, 2000);
-            setTimeout(cleanSharePointLeaks, 5000);
+      // Clean up SP leaks
+      startLeakCleaner();
 
-            var leakWatcher = new MutationObserver(function () {
-                cleanSharePointLeaks();
-            });
-            leakWatcher.observe(document.body, { childList: true });
+    }).catch(function (err) {
+      console.error('[TAKT BOOT] File fetch failed:', err);
+      showBootError('File Load Failed', err.message);
+    });
+  }
 
-        } catch (err) {
-            console.error('[SNA4] Boot failed:', err);
-            document.body.innerHTML = '<div style="padding:40px;font-family:sans-serif;max-width:600px;margin:auto;"><h1 style="color:red;">Failed to Load SNA4</h1><pre style="background:#f5f5f5;padding:16px;border-radius:8px;margin:16px 0;">' + err + '</pre><p>Expected URLs:</p><pre style="background:#f5f5f5;padding:16px;border-radius:8px;font-size:12px;">' + FILES.html + '\n' + FILES.css + '\n' + FILES.js + '</pre></div>';
-        }
-    }
+  function showBootError(title, message) {
+    document.body.innerHTML =
+      '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;gap:16px;font-family:Inter,system-ui,sans-serif;background:#0f172a;color:#e2e8f0;">' +
+        '<div style="font-size:48px;">⚠️</div>' +
+        '<div style="font-size:22px;font-weight:800;">' + title + '</div>' +
+        '<div style="font-size:14px;color:#f87171;max-width:600px;text-align:center;word-break:break-all;">' + message + '</div>' +
+        '<div style="margin-top:20px;padding:16px;background:#1e293b;border-radius:12px;font-size:12px;color:#94a3b8;max-width:600px;width:100%;">' +
+          '<div style="font-weight:700;margin-bottom:8px;color:#cbd5e1;">Expected file URLs:</div>' +
+          '<div>HTML: ' + FILES.html + '</div>' +
+          '<div>CSS: ' + FILES.css + '</div>' +
+          '<div>JS: ' + FILES.js + '</div>' +
+        '</div>' +
+        '<button onclick="location.reload()" style="margin-top:16px;padding:10px 24px;border-radius:10px;border:none;background:#6366f1;color:white;font-size:14px;font-weight:700;cursor:pointer;">Reload Page</button>' +
+      '</div>';
+  }
 
-    // ═══════════════════════════════════════════════
-    //  TRIGGER
-    // ═══════════════════════════════════════════════
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', boot);
-    } else {
-        boot();
-    }
+  // ── TRIGGER ────────────────────────────────────────────
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', boot);
+  } else {
+    boot();
+  }
 })();
