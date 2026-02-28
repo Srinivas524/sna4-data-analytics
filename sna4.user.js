@@ -3,14 +3,13 @@
 // @namespace    http://tampermonkey.net/
 // @version      12.0
 // @description  Floating time study timer — loaded from SharePoint
-// @match        https://ramdos.org/*
-// @match        https://fclm-portal.amazon.com/*
+// @match        https://amazon.sharepoint.com/sites/TackAnalysis/SitePages/CollabHome.aspx*
 // @grant        GM_xmlhttpRequest
 // @grant        GM_addStyle
 // @connect      amazon.sharepoint.com
 // @connect      raw.githubusercontent.com
-// @updateURL    https://raw.githubusercontent.com/Srinivas524/sna4-takt-timer/main/sna4-takt-timer.user.js
-// @downloadURL  https://raw.githubusercontent.com/Srinivas524/sna4-takt-timer/main/sna4-takt-timer.user.js
+// @updateURL    https://raw.githubusercontent.com/Srinivas524/sna4-data-analytics/main/sna4.user.js
+// @downloadURL  https://raw.githubusercontent.com/Srinivas524/sna4-data-analytics/main/sna4.user.js
 // ==/UserScript==
 
 (function () {
