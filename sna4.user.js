@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         SNA4 Data Analytics — Bootloader
 // @namespace    http://tampermonkey.net/
-// @version      2.3
+// @version      2.4
 // @description  Multi-page bootloader — hijacks SharePoint pages and loads SNA4 Data Analytics suite
 // @match        https://amazon.sharepoint.com/sites/TackAnalysis/SitePages/Home.aspx
 // @match        https://amazon.sharepoint.com/sites/TackAnalysis/SitePages/TaktTimeStudy.aspx
@@ -15,6 +15,7 @@
 // @connect      fclm-portal.amazon.com
 // @connect      hooks.slack.com
 // @connect      badgephotos.corp.amazon.com
+// @connect      localhost
 // @updateURL    https://raw.githubusercontent.com/Srinivas524/sna4-data-analytics/main/sna4.user.js
 // @downloadURL  https://raw.githubusercontent.com/Srinivas524/sna4-data-analytics/main/sna4.user.js
 // ==/UserScript==
@@ -22,17 +23,12 @@
 (function () {
   'use strict';
 
-  // ══════════════════════════════════════════════════════════
-  // CONFIGURATION
-  // ══════════════════════════════════════════════════════════
-
-  var BOOT_VERSION = '2.2';
+  var BOOT_VERSION = '2.4';
   var APP_NAME = 'SNA4 Data Analytics';
 
   var SP_BASE = 'https://amazon.sharepoint.com/sites/TackAnalysis';
   var FILE_BASE = SP_BASE + '/SNA4_UI';
 
-  // ── PAGE DETECTION ─────────────────────────────────────
   var PAGE_MAP = {
     'home': {
       patterns: ['/sitepages/home.aspx'],
@@ -63,15 +59,16 @@
     }
   };
 
-  // ── SHARED FILES (loaded on every page) ────────────────
+  // 🤖 AI CHATBOT — Added chatbot files to shared
   var SHARED_FILES = {
     css: FILE_BASE + '/shared/common.css',
-    js:  FILE_BASE + '/shared/common.js'
+    js:  FILE_BASE + '/shared/common.js',
+    chatbotCSS: FILE_BASE + '/AI%20chatbot/chatbot.css',
+    chatbotJS:  FILE_BASE + '/AI%20chatbot/chatbot.js'
   };
 
   var ROOT_ID = 'sna4-root';
 
-  // ── DETECT CURRENT PAGE ────────────────────────────────
   function detectPage() {
     var path = window.location.pathname.toLowerCase();
     var pageKeys = Object.keys(PAGE_MAP);
@@ -89,7 +86,6 @@
 
   var CURRENT_PAGE = detectPage();
 
-  // If we can't detect the page, bail out
   if (!CURRENT_PAGE) {
     console.warn('[SNA4 BOOT] Unknown page \u2014 bootloader inactive');
     return;
@@ -99,7 +95,6 @@
 
   console.log('[SNA4 BOOT] Detected page: ' + CURRENT_PAGE + ' (' + PAGE_CONFIG.title + ')');
 
-  // ── EXPOSE GLOBALS FOR COMMON.JS AND PAGE JS ───────────
   window.TAKT_BOOT_VERSION = BOOT_VERSION;
   window.TAKT_GITHUB_RAW = 'https://raw.githubusercontent.com/Srinivas524/sna4-data-analytics/main/sna4.user.js';
 
@@ -118,13 +113,7 @@
     }
   };
 
-  // Expose current page info for common.js
   window.SNA4_CURRENT_PAGE = CURRENT_PAGE;
-
-
-  // ══════════════════════════════════════════════════════════
-  // SHAREPOINT BLOCKER
-  // ══════════════════════════════════════════════════════════
 
   var spBlocker = new MutationObserver(function (mutations) {
     for (var i = 0; i < mutations.length; i++) {
@@ -143,11 +132,6 @@
   if (document.documentElement) {
     spBlocker.observe(document.documentElement, { childList: true, subtree: true });
   }
-
-
-  // ══════════════════════════════════════════════════════════
-  // FILE FETCHER
-  // ══════════════════════════════════════════════════════════
 
   function fetchFile(url) {
     return new Promise(function (resolve, reject) {
@@ -169,17 +153,14 @@
     });
   }
 
-
-  // ══════════════════════════════════════════════════════════
-  // LEAK CLEANER
-  // ══════════════════════════════════════════════════════════
-
   function cleanLeaks() {
     if (!document.body) return;
     var children = document.body.children;
     for (var i = children.length - 1; i >= 0; i--) {
       var child = children[i];
       if (child.id !== ROOT_ID &&
+          child.id !== 'ai-chat-fab' &&
+          child.id !== 'ai-chat-panel' &&
           child.tagName !== 'SCRIPT' &&
           !child.classList.contains('sna4-toast')) {
         child.remove();
@@ -201,6 +182,8 @@
           var node = nodes[j];
           if (node.nodeType === 1 &&
               node.id !== ROOT_ID &&
+              node.id !== 'ai-chat-fab' &&
+              node.id !== 'ai-chat-panel' &&
               node.tagName !== 'SCRIPT' &&
               !node.classList.contains('sna4-toast')) {
             node.remove();
@@ -213,11 +196,6 @@
       bodyObserver.observe(document.body, { childList: true });
     }
   }
-
-
-  // ══════════════════════════════════════════════════════════
-  // LOADING SPINNER
-  // ══════════════════════════════════════════════════════════
 
   function showLoadingScreen(pageName) {
     document.body.style.margin = '0';
@@ -235,6 +213,7 @@
         '<div style="display:flex;gap:6px;margin-top:8px;" id="sna4-boot-progress">' +
           '<div class="bp" style="width:8px;height:8px;border-radius:50%;background:rgba(99,102,241,0.2);" id="bp-shared-css"></div>' +
           '<div class="bp" style="width:8px;height:8px;border-radius:50%;background:rgba(99,102,241,0.2);" id="bp-shared-js"></div>' +
+          '<div class="bp" style="width:8px;height:8px;border-radius:50%;background:rgba(99,102,241,0.2);" id="bp-chatbot"></div>' +
           '<div class="bp" style="width:8px;height:8px;border-radius:50%;background:rgba(99,102,241,0.2);" id="bp-page-html"></div>' +
           '<div class="bp" style="width:8px;height:8px;border-radius:50%;background:rgba(99,102,241,0.2);" id="bp-page-css"></div>' +
           '<div class="bp" style="width:8px;height:8px;border-radius:50%;background:rgba(99,102,241,0.2);" id="bp-page-js"></div>' +
@@ -248,11 +227,6 @@
     var dot = document.getElementById(dotId);
     if (dot) dot.style.background = '#6366f1';
   }
-
-
-  // ══════════════════════════════════════════════════════════
-  // ERROR SCREEN
-  // ══════════════════════════════════════════════════════════
 
   function showBootError(title, message) {
     document.body.innerHTML =
@@ -276,42 +250,33 @@
       '</div>';
   }
 
-
-  // ══════════════════════════════════════════════════════════
-  // BOOT SEQUENCE
-  // ══════════════════════════════════════════════════════════
-
   function boot() {
     spBlocker.disconnect();
 
-    // Wipe page completely
     while (document.head.firstChild) document.head.firstChild.remove();
     while (document.body && document.body.firstChild) document.body.firstChild.remove();
 
-    // Set document basics
     document.title = PAGE_CONFIG.title;
     var meta = document.createElement('meta');
     meta.name = 'viewport';
     meta.content = 'width=device-width, initial-scale=1.0';
     document.head.appendChild(meta);
 
-    // Show loading screen
     showLoadingScreen(PAGE_CONFIG.title);
 
     console.log('[SNA4 BOOT] Loading files for: ' + CURRENT_PAGE);
-    console.log('[SNA4 BOOT] Shared: common.css + common.js');
-    console.log('[SNA4 BOOT] Page: ' + PAGE_CONFIG.files.html);
 
-    // ── PHASE 1: Fetch ALL files in parallel ─────────────
+    // 🤖 AI CHATBOT — Added chatbot files to fetch
     var fetchPromises = {
-      sharedCSS: fetchFile(SHARED_FILES.css).then(function (r) { markProgress('bp-shared-css'); return r; }),
-      sharedJS:  fetchFile(SHARED_FILES.js).then(function (r) { markProgress('bp-shared-js'); return r; }),
-      pageHTML:  fetchFile(PAGE_CONFIG.files.html).then(function (r) { markProgress('bp-page-html'); return r; }),
-      pageCSS:   fetchFile(PAGE_CONFIG.files.css).then(function (r) { markProgress('bp-page-css'); return r; }),
-      pageJS:    fetchFile(PAGE_CONFIG.files.js).then(function (r) { markProgress('bp-page-js'); return r; })
+      sharedCSS:  fetchFile(SHARED_FILES.css).then(function (r) { markProgress('bp-shared-css'); return r; }),
+      sharedJS:   fetchFile(SHARED_FILES.js).then(function (r) { markProgress('bp-shared-js'); return r; }),
+      chatbotCSS: fetchFile(SHARED_FILES.chatbotCSS).then(function (r) { markProgress('bp-chatbot'); return r; }),
+      chatbotJS:  fetchFile(SHARED_FILES.chatbotJS).then(function (r) { markProgress('bp-chatbot'); return r; }),
+      pageHTML:   fetchFile(PAGE_CONFIG.files.html).then(function (r) { markProgress('bp-page-html'); return r; }),
+      pageCSS:    fetchFile(PAGE_CONFIG.files.css).then(function (r) { markProgress('bp-page-css'); return r; }),
+      pageJS:     fetchFile(PAGE_CONFIG.files.js).then(function (r) { markProgress('bp-page-js'); return r; })
     };
 
-    // Convert to array for Promise.all but keep keys
     var keys = Object.keys(fetchPromises);
     var promiseArray = keys.map(function (k) { return fetchPromises[k]; });
 
@@ -323,12 +288,12 @@
 
       console.log('[SNA4 BOOT] All files loaded, injecting...');
 
-      // ── PHASE 2: Inject CSS (shared first, then page-specific) ──
       GM_addStyle(files.sharedCSS);
       GM_addStyle(files.pageCSS);
-      console.log('[SNA4 BOOT] \u2705 CSS injected (shared + page)');
+      // 🤖 AI CHATBOT — Inject chatbot CSS
+      GM_addStyle(files.chatbotCSS);
+      console.log('[SNA4 BOOT] \u2705 CSS injected (shared + page + chatbot)');
 
-      // ── PHASE 3: Execute shared common.js ──────────────
       try {
         eval(files.sharedJS);
         console.log('[SNA4 BOOT] \u2705 Common module loaded');
@@ -338,17 +303,14 @@
         return;
       }
 
-      // Verify common module loaded
       if (!window.SNA4) {
         showBootError('Module Load Failed', 'window.SNA4 not found after executing common.js');
         return;
       }
 
-      // ── PHASE 4: Inject page HTML ─────────────────────
       document.body.innerHTML = files.pageHTML;
       console.log('[SNA4 BOOT] \u2705 Page HTML injected');
 
-      // ── PHASE 5: Execute page-specific JS ─────────────
       try {
         eval(files.pageJS);
         console.log('[SNA4 BOOT] \u2705 Page JS executed \u2014 ' + CURRENT_PAGE + ' initialized');
@@ -358,7 +320,14 @@
         return;
       }
 
-      // ── PHASE 6: Clean up SharePoint leaks ────────────
+      // 🤖 AI CHATBOT — Load chatbot overlay (non-blocking)
+      try {
+        eval(files.chatbotJS);
+        console.log('[SNA4 BOOT] \u2705 AI Chatbot loaded');
+      } catch (err) {
+        console.warn('[SNA4 BOOT] \u26A0\uFE0F AI Chatbot failed:', err.message);
+      }
+
       startLeakCleaner();
 
       console.log('[SNA4 BOOT] \u2705 Boot complete \u2014 ' + PAGE_CONFIG.title);
@@ -368,11 +337,6 @@
       showBootError('File Load Failed', err.message);
     });
   }
-
-
-  // ══════════════════════════════════════════════════════════
-  // TRIGGER BOOT
-  // ══════════════════════════════════════════════════════════
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', boot);
