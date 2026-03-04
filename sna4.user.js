@@ -1,12 +1,13 @@
 // ==UserScript==
 // @name         SNA4 Data Analytics — Bootloader
 // @namespace    http://tampermonkey.net/
-// @version      2.4
+// @version      2.5
 // @description  Multi-page bootloader — hijacks SharePoint pages and loads SNA4 Data Analytics suite
 // @match        https://amazon.sharepoint.com/sites/TackAnalysis/SitePages/Home.aspx
 // @match        https://amazon.sharepoint.com/sites/TackAnalysis/SitePages/TaktTimeStudy.aspx
 // @match        https://amazon.sharepoint.com/sites/TackAnalysis/SitePages/InferredAnalysis.aspx
 // @match        https://amazon.sharepoint.com/sites/TackAnalysis/SitePages/CollabHome.aspx
+// @match        https://amazon.sharepoint.com/sites/TackAnalysis/SitePages/OB-Planner.aspx
 // @run-at       document-start
 // @grant        GM_addStyle
 // @grant        GM_xmlhttpRequest
@@ -16,6 +17,7 @@
 // @connect      hooks.slack.com
 // @connect      badgephotos.corp.amazon.com
 // @connect      localhost
+// @connect      rodeo-iad.amazon.com
 // @updateURL    https://raw.githubusercontent.com/Srinivas524/sna4-data-analytics/main/sna4.user.js
 // @downloadURL  https://raw.githubusercontent.com/Srinivas524/sna4-data-analytics/main/sna4.user.js
 // ==/UserScript==
@@ -23,7 +25,7 @@
 (function () {
   'use strict';
 
-  var BOOT_VERSION = '2.4';
+  var BOOT_VERSION = '2.5';
   var APP_NAME = 'SNA4 Data Analytics';
 
   var SP_BASE = 'https://amazon.sharepoint.com/sites/TackAnalysis';
@@ -55,6 +57,15 @@
         html: FILE_BASE + '/inferred/inferred.html',
         css:  FILE_BASE + '/inferred/inferred.css',
         js:   FILE_BASE + '/inferred/inferred.js'
+      }
+    },
+    'obplanner': {
+      patterns: ['/sitepages/ob-planner.aspx'],
+      title: 'OB Planner \u2014 SNA4',
+      files: {
+        html: FILE_BASE + '/obplanner/obplanner.html',
+        css:  FILE_BASE + '/obplanner/obplanner.css',
+        js:   FILE_BASE + '/obplanner/obplanner.js'
       }
     }
   };
