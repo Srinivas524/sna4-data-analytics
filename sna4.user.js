@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         SNA4 Data Analytics — Bootloader
 // @namespace    http://tampermonkey.net/
-// @version      2.5
+// @version      2.6
 // @description  Multi-page bootloader — hijacks SharePoint pages and loads SNA4 Data Analytics suite
 // @match        https://amazon.sharepoint.com/sites/TackAnalysis/SitePages/Home.aspx
 // @match        https://amazon.sharepoint.com/sites/TackAnalysis/SitePages/TaktTimeStudy.aspx
@@ -11,6 +11,9 @@
 // @run-at       document-start
 // @grant        GM_addStyle
 // @grant        GM_xmlhttpRequest
+// @grant        GM_getValue
+// @grant        GM_setValue
+// @grant        GM_openInTab
 // @connect      amazon.sharepoint.com
 // @connect      raw.githubusercontent.com
 // @connect      fclm-portal.amazon.com
@@ -18,6 +21,8 @@
 // @connect      badgephotos.corp.amazon.com
 // @connect      localhost
 // @connect      rodeo-iad.amazon.com
+// @connect      alps-iad.iad.proxy.amazon.com
+// @connect      api.ramdos.org
 // @updateURL    https://raw.githubusercontent.com/Srinivas524/sna4-data-analytics/main/sna4.user.js
 // @downloadURL  https://raw.githubusercontent.com/Srinivas524/sna4-data-analytics/main/sna4.user.js
 // ==/UserScript==
@@ -25,11 +30,19 @@
 (function () {
   'use strict';
 
-  var BOOT_VERSION = '2.5';
+  var BOOT_VERSION = '2.6';
   var APP_NAME = 'SNA4 Data Analytics';
 
   var SP_BASE = 'https://amazon.sharepoint.com/sites/TackAnalysis';
   var FILE_BASE = SP_BASE + '/SNA4_UI';
+
+  // ══════════════════════════════════════════════════════════
+  //  PAGE MAP
+  //
+  //  files.html  — single string (one HTML shell per page)
+  //  files.css   — string OR array (loaded in order)
+  //  files.js    — string OR array (executed in order)
+  // ══════════════════════════════════════════════════════════
 
   var PAGE_MAP = {
     'home': {
@@ -64,13 +77,25 @@
       title: 'OB Planner \u2014 SNA4',
       files: {
         html: FILE_BASE + '/obplanner/obplanner.html',
-        css:  FILE_BASE + '/obplanner/obplanner.css',
-        js:   FILE_BASE + '/obplanner/obplanner.js'
+        css: [
+          FILE_BASE + '/obplanner/obplanner.css',
+          FILE_BASE + '/obplanner/obplanner-overall.css',
+          FILE_BASE + '/obplanner/obplanner-pick.css',
+          FILE_BASE + '/obplanner/obplanner-pack.css',
+          FILE_BASE + '/obplanner/obplanner-dock.css'
+        ],
+        js: [
+          FILE_BASE + '/obplanner/obplanner.js',
+          FILE_BASE + '/obplanner/obplanner-overall.js',
+          FILE_BASE + '/obplanner/obplanner-pick.js',
+          FILE_BASE + '/obplanner/obplanner-pack.js',
+          FILE_BASE + '/obplanner/obplanner-dock.js'
+        ]
       }
     }
   };
 
-  // 🤖 AI CHATBOT — Added chatbot files to shared
+  // 🤖 AI CHATBOT — chatbot files loaded on every page
   var SHARED_FILES = {
     css: FILE_BASE + '/shared/common.css',
     js:  FILE_BASE + '/shared/common.js',
@@ -79,6 +104,11 @@
   };
 
   var ROOT_ID = 'sna4-root';
+
+
+  // ══════════════════════════════════════════════════════════
+  //  PAGE DETECTION
+  // ══════════════════════════════════════════════════════════
 
   function detectPage() {
     var path = window.location.pathname.toLowerCase();
@@ -106,6 +136,11 @@
 
   console.log('[SNA4 BOOT] Detected page: ' + CURRENT_PAGE + ' (' + PAGE_CONFIG.title + ')');
 
+
+  // ══════════════════════════════════════════════════════════
+  //  GLOBAL EXPORTS
+  // ══════════════════════════════════════════════════════════
+
   window.TAKT_BOOT_VERSION = BOOT_VERSION;
   window.TAKT_GITHUB_RAW = 'https://raw.githubusercontent.com/Srinivas524/sna4-data-analytics/main/sna4.user.js';
 
@@ -126,6 +161,11 @@
 
   window.SNA4_CURRENT_PAGE = CURRENT_PAGE;
 
+
+  // ══════════════════════════════════════════════════════════
+  //  SHAREPOINT DOM BLOCKER
+  // ══════════════════════════════════════════════════════════
+
   var spBlocker = new MutationObserver(function (mutations) {
     for (var i = 0; i < mutations.length; i++) {
       var nodes = mutations[i].addedNodes;
@@ -143,6 +183,11 @@
   if (document.documentElement) {
     spBlocker.observe(document.documentElement, { childList: true, subtree: true });
   }
+
+
+  // ══════════════════════════════════════════════════════════
+  //  FILE FETCHER
+  // ══════════════════════════════════════════════════════════
 
   function fetchFile(url) {
     return new Promise(function (resolve, reject) {
@@ -163,6 +208,28 @@
       });
     });
   }
+
+
+  // ══════════════════════════════════════════════════════════
+  //  HELPERS — Normalize string|array, fetch multiple files
+  // ══════════════════════════════════════════════════════════
+
+  function toArray(val) {
+    if (!val) return [];
+    return Array.isArray(val) ? val : [val];
+  }
+
+  function fetchMultiple(urls) {
+    // Fetches all URLs in parallel, returns results in order
+    return Promise.all(urls.map(function (url) {
+      return fetchFile(url);
+    }));
+  }
+
+
+  // ══════════════════════════════════════════════════════════
+  //  LEAK CLEANER
+  // ══════════════════════════════════════════════════════════
 
   function cleanLeaks() {
     if (!document.body) return;
@@ -208,6 +275,11 @@
     }
   }
 
+
+  // ══════════════════════════════════════════════════════════
+  //  LOADING SCREEN
+  // ══════════════════════════════════════════════════════════
+
   function showLoadingScreen(pageName) {
     document.body.style.margin = '0';
     document.body.style.padding = '0';
@@ -216,18 +288,34 @@
 
     var pageLabel = pageName || APP_NAME;
 
+    // Count total files for progress dots
+    var cssUrls = toArray(PAGE_CONFIG.files.css);
+    var jsUrls  = toArray(PAGE_CONFIG.files.js);
+    var totalPageFiles = 1 + cssUrls.length + jsUrls.length; // html + css[] + js[]
+
+    var dotsHTML = '';
+    // Shared: css, js, chatbot (3 dots)
+    dotsHTML += '<div class="bp" style="width:8px;height:8px;border-radius:50%;background:rgba(99,102,241,0.2);" id="bp-shared-css"></div>';
+    dotsHTML += '<div class="bp" style="width:8px;height:8px;border-radius:50%;background:rgba(99,102,241,0.2);" id="bp-shared-js"></div>';
+    dotsHTML += '<div class="bp" style="width:8px;height:8px;border-radius:50%;background:rgba(99,102,241,0.2);" id="bp-chatbot"></div>';
+    // Page HTML (1 dot)
+    dotsHTML += '<div class="bp" style="width:8px;height:8px;border-radius:50%;background:rgba(99,102,241,0.2);" id="bp-page-html"></div>';
+    // Page CSS files
+    for (var ci = 0; ci < cssUrls.length; ci++) {
+      dotsHTML += '<div class="bp" style="width:8px;height:8px;border-radius:50%;background:rgba(99,102,241,0.2);" id="bp-page-css-' + ci + '"></div>';
+    }
+    // Page JS files
+    for (var ji = 0; ji < jsUrls.length; ji++) {
+      dotsHTML += '<div class="bp" style="width:8px;height:8px;border-radius:50%;background:rgba(99,102,241,0.2);" id="bp-page-js-' + ji + '"></div>';
+    }
+
     document.body.innerHTML =
       '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;gap:20px;">' +
         '<div style="width:48px;height:48px;border:4px solid rgba(99,102,241,0.2);border-top-color:#6366f1;border-radius:50%;animation:spin 1s linear infinite;"></div>' +
         '<div style="color:#e2e8f0;font-size:18px;font-weight:700;letter-spacing:-0.3px;">' + APP_NAME + '</div>' +
         '<div style="color:#64748b;font-size:13px;">Loading ' + pageLabel + '...</div>' +
-        '<div style="display:flex;gap:6px;margin-top:8px;" id="sna4-boot-progress">' +
-          '<div class="bp" style="width:8px;height:8px;border-radius:50%;background:rgba(99,102,241,0.2);" id="bp-shared-css"></div>' +
-          '<div class="bp" style="width:8px;height:8px;border-radius:50%;background:rgba(99,102,241,0.2);" id="bp-shared-js"></div>' +
-          '<div class="bp" style="width:8px;height:8px;border-radius:50%;background:rgba(99,102,241,0.2);" id="bp-chatbot"></div>' +
-          '<div class="bp" style="width:8px;height:8px;border-radius:50%;background:rgba(99,102,241,0.2);" id="bp-page-html"></div>' +
-          '<div class="bp" style="width:8px;height:8px;border-radius:50%;background:rgba(99,102,241,0.2);" id="bp-page-css"></div>' +
-          '<div class="bp" style="width:8px;height:8px;border-radius:50%;background:rgba(99,102,241,0.2);" id="bp-page-js"></div>' +
+        '<div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;justify-content:center;max-width:300px;" id="sna4-boot-progress">' +
+          dotsHTML +
         '</div>' +
         '<div style="color:#475569;font-size:10px;font-weight:600;letter-spacing:0.5px;text-transform:uppercase;margin-top:4px;">v' + BOOT_VERSION + '</div>' +
       '</div>' +
@@ -239,7 +327,26 @@
     if (dot) dot.style.background = '#6366f1';
   }
 
+
+  // ══════════════════════════════════════════════════════════
+  //  ERROR SCREEN
+  // ══════════════════════════════════════════════════════════
+
   function showBootError(title, message) {
+    var cssUrls = toArray(PAGE_CONFIG.files.css);
+    var jsUrls  = toArray(PAGE_CONFIG.files.js);
+
+    var filesAttempted = '';
+    filesAttempted += '<div>Shared CSS: ' + SHARED_FILES.css + '</div>';
+    filesAttempted += '<div>Shared JS: ' + SHARED_FILES.js + '</div>';
+    filesAttempted += '<div>Page HTML: ' + PAGE_CONFIG.files.html + '</div>';
+    for (var ci = 0; ci < cssUrls.length; ci++) {
+      filesAttempted += '<div>Page CSS[' + ci + ']: ' + cssUrls[ci] + '</div>';
+    }
+    for (var ji = 0; ji < jsUrls.length; ji++) {
+      filesAttempted += '<div>Page JS[' + ji + ']: ' + jsUrls[ji] + '</div>';
+    }
+
     document.body.innerHTML =
       '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;gap:16px;font-family:Inter,system-ui,sans-serif;background:#0f172a;color:#e2e8f0;">' +
         '<div style="font-size:48px;">\u26A0\uFE0F</div>' +
@@ -248,11 +355,7 @@
         '<div style="margin-top:20px;padding:16px;background:#1e293b;border-radius:12px;font-size:12px;color:#94a3b8;max-width:600px;width:100%;">' +
           '<div style="font-weight:700;margin-bottom:8px;color:#cbd5e1;">Page: ' + CURRENT_PAGE + '</div>' +
           '<div style="font-weight:700;margin-bottom:8px;color:#cbd5e1;">Files attempted:</div>' +
-          '<div>Shared CSS: ' + SHARED_FILES.css + '</div>' +
-          '<div>Shared JS: ' + SHARED_FILES.js + '</div>' +
-          '<div>Page HTML: ' + PAGE_CONFIG.files.html + '</div>' +
-          '<div>Page CSS: ' + PAGE_CONFIG.files.css + '</div>' +
-          '<div>Page JS: ' + PAGE_CONFIG.files.js + '</div>' +
+          filesAttempted +
         '</div>' +
         '<div style="display:flex;gap:10px;margin-top:16px;">' +
           '<button onclick="location.reload()" style="padding:10px 24px;border-radius:10px;border:none;background:#6366f1;color:white;font-size:14px;font-weight:700;cursor:pointer;">Reload Page</button>' +
@@ -260,6 +363,11 @@
         '</div>' +
       '</div>';
   }
+
+
+  // ══════════════════════════════════════════════════════════
+  //  BOOT
+  // ══════════════════════════════════════════════════════════
 
   function boot() {
     spBlocker.disconnect();
@@ -277,77 +385,128 @@
 
     console.log('[SNA4 BOOT] Loading files for: ' + CURRENT_PAGE);
 
-    // 🤖 AI CHATBOT — Added chatbot files to fetch
-    var fetchPromises = {
-      sharedCSS:  fetchFile(SHARED_FILES.css).then(function (r) { markProgress('bp-shared-css'); return r; }),
-      sharedJS:   fetchFile(SHARED_FILES.js).then(function (r) { markProgress('bp-shared-js'); return r; }),
-      chatbotCSS: fetchFile(SHARED_FILES.chatbotCSS).then(function (r) { markProgress('bp-chatbot'); return r; }),
-      chatbotJS:  fetchFile(SHARED_FILES.chatbotJS).then(function (r) { markProgress('bp-chatbot'); return r; }),
-      pageHTML:   fetchFile(PAGE_CONFIG.files.html).then(function (r) { markProgress('bp-page-html'); return r; }),
-      pageCSS:    fetchFile(PAGE_CONFIG.files.css).then(function (r) { markProgress('bp-page-css'); return r; }),
-      pageJS:     fetchFile(PAGE_CONFIG.files.js).then(function (r) { markProgress('bp-page-js'); return r; })
-    };
+    // ── Normalize file lists ──────────────────────────────
+    var cssUrls = toArray(PAGE_CONFIG.files.css);
+    var jsUrls  = toArray(PAGE_CONFIG.files.js);
 
-    var keys = Object.keys(fetchPromises);
-    var promiseArray = keys.map(function (k) { return fetchPromises[k]; });
+    // ── Build fetch map ───────────────────────────────────
+    // Shared files
+    var sharedCSSPromise = fetchFile(SHARED_FILES.css).then(function (r) { markProgress('bp-shared-css'); return r; });
+    var sharedJSPromise  = fetchFile(SHARED_FILES.js).then(function (r) { markProgress('bp-shared-js'); return r; });
+    var chatbotCSSPromise = fetchFile(SHARED_FILES.chatbotCSS).then(function (r) { markProgress('bp-chatbot'); return r; });
+    var chatbotJSPromise  = fetchFile(SHARED_FILES.chatbotJS).then(function (r) { markProgress('bp-chatbot'); return r; });
 
-    Promise.all(promiseArray).then(function (results) {
-      var files = {};
-      for (var i = 0; i < keys.length; i++) {
-        files[keys[i]] = results[i];
+    // Page HTML (single file)
+    var pageHTMLPromise = fetchFile(PAGE_CONFIG.files.html).then(function (r) { markProgress('bp-page-html'); return r; });
+
+    // Page CSS (array — fetch in parallel, mark individually)
+    var pageCSSPromises = cssUrls.map(function (url, idx) {
+      return fetchFile(url).then(function (r) { markProgress('bp-page-css-' + idx); return r; });
+    });
+
+    // Page JS (array — fetch in parallel, mark individually)
+    var pageJSPromises = jsUrls.map(function (url, idx) {
+      return fetchFile(url).then(function (r) { markProgress('bp-page-js-' + idx); return r; });
+    });
+
+    // ── Wait for everything ───────────────────────────────
+    Promise.all([
+      sharedCSSPromise,     // [0]
+      sharedJSPromise,      // [1]
+      chatbotCSSPromise,    // [2]
+      chatbotJSPromise,     // [3]
+      pageHTMLPromise,      // [4]
+      Promise.all(pageCSSPromises),  // [5] — array of CSS strings
+      Promise.all(pageJSPromises)    // [6] — array of JS strings
+    ]).then(function (results) {
+
+      var sharedCSS  = results[0];
+      var sharedJS   = results[1];
+      var chatbotCSS = results[2];
+      var chatbotJS  = results[3];
+      var pageHTML   = results[4];
+      var pageCSSArr = results[5];  // string[]
+      var pageJSArr  = results[6];  // string[]
+
+      console.log('[SNA4 BOOT] All files loaded (' +
+        '1 HTML, ' + pageCSSArr.length + ' CSS, ' + pageJSArr.length + ' JS' +
+        '), injecting...');
+
+      // ── 1. CSS — shared + page (in order) + chatbot ────
+      GM_addStyle(sharedCSS);
+      for (var ci = 0; ci < pageCSSArr.length; ci++) {
+        GM_addStyle(pageCSSArr[ci]);
+      }
+      GM_addStyle(chatbotCSS);
+      console.log('[SNA4 BOOT] \u2705 CSS injected (shared + ' + pageCSSArr.length + ' page + chatbot)');
+
+      // ── 2. Shared JS (common module) ───────────────────
+      // Only inject for pages that use it (non-obplanner)
+      // OB Planner is self-contained — doesn't need common.js
+      var needsCommonJS = (CURRENT_PAGE !== 'obplanner');
+
+      if (needsCommonJS) {
+        try {
+          eval(sharedJS);
+          console.log('[SNA4 BOOT] \u2705 Common module loaded');
+        } catch (err) {
+          console.error('[SNA4 BOOT] Common JS error:', err);
+          showBootError('Common Module Error', err.message);
+          return;
+        }
+
+        if (!window.SNA4) {
+          showBootError('Module Load Failed', 'window.SNA4 not found after executing common.js');
+          return;
+        }
+      } else {
+        console.log('[SNA4 BOOT] \u2139\uFE0F Skipping common.js (page is self-contained)');
       }
 
-      console.log('[SNA4 BOOT] All files loaded, injecting...');
-
-      GM_addStyle(files.sharedCSS);
-      GM_addStyle(files.pageCSS);
-      // 🤖 AI CHATBOT — Inject chatbot CSS
-      GM_addStyle(files.chatbotCSS);
-      console.log('[SNA4 BOOT] \u2705 CSS injected (shared + page + chatbot)');
-
-      try {
-        eval(files.sharedJS);
-        console.log('[SNA4 BOOT] \u2705 Common module loaded');
-      } catch (err) {
-        console.error('[SNA4 BOOT] Common JS error:', err);
-        showBootError('Common Module Error', err.message);
-        return;
-      }
-
-      if (!window.SNA4) {
-        showBootError('Module Load Failed', 'window.SNA4 not found after executing common.js');
-        return;
-      }
-
-      document.body.innerHTML = files.pageHTML;
+      // ── 3. Page HTML ───────────────────────────────────
+      document.body.innerHTML = pageHTML;
       console.log('[SNA4 BOOT] \u2705 Page HTML injected');
 
-      try {
-        eval(files.pageJS);
-        console.log('[SNA4 BOOT] \u2705 Page JS executed \u2014 ' + CURRENT_PAGE + ' initialized');
-      } catch (err) {
-        console.error('[SNA4 BOOT] Page JS error:', err);
-        showBootError('Page JavaScript Error', CURRENT_PAGE + ': ' + err.message);
-        return;
+      // ── 4. Page JS — execute IN ORDER (core first) ─────
+      for (var ji = 0; ji < pageJSArr.length; ji++) {
+        try {
+          eval(pageJSArr[ji]);
+          var jsFileName = jsUrls[ji].split('/').pop();
+          console.log('[SNA4 BOOT] \u2705 JS[' + ji + '] executed: ' + jsFileName);
+        } catch (err) {
+          var failedFile = jsUrls[ji].split('/').pop();
+          console.error('[SNA4 BOOT] JS[' + ji + '] error (' + failedFile + '):', err);
+          showBootError('JavaScript Error', failedFile + ': ' + err.message);
+          return;
+        }
       }
 
-      // 🤖 AI CHATBOT — Load chatbot overlay (non-blocking)
+      console.log('[SNA4 BOOT] \u2705 All ' + pageJSArr.length + ' JS files executed');
+
+      // ── 5. Chatbot overlay (non-blocking) ──────────────
       try {
-        eval(files.chatbotJS);
+        eval(chatbotJS);
         console.log('[SNA4 BOOT] \u2705 AI Chatbot loaded');
       } catch (err) {
         console.warn('[SNA4 BOOT] \u26A0\uFE0F AI Chatbot failed:', err.message);
       }
 
+      // ── 6. Leak cleaner ────────────────────────────────
       startLeakCleaner();
 
-      console.log('[SNA4 BOOT] \u2705 Boot complete \u2014 ' + PAGE_CONFIG.title);
+      console.log('[SNA4 BOOT] \u2705 Boot complete \u2014 ' + PAGE_CONFIG.title +
+        ' (' + pageCSSArr.length + ' CSS, ' + pageJSArr.length + ' JS)');
 
     }).catch(function (err) {
       console.error('[SNA4 BOOT] File fetch failed:', err);
       showBootError('File Load Failed', err.message);
     });
   }
+
+
+  // ══════════════════════════════════════════════════════════
+  //  START
+  // ══════════════════════════════════════════════════════════
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', boot);
