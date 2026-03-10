@@ -1,14 +1,16 @@
 // ==UserScript==
 // @name         SNA4 Data Analytics — Bootloader
 // @namespace    http://tampermonkey.net/
-// @version      2.6
+// @version      2.7
 // @description  Multi-page bootloader — hijacks SharePoint pages and loads SNA4 Data Analytics suite
 // @match        https://amazon.sharepoint.com/sites/TackAnalysis/SitePages/Home.aspx
 // @match        https://amazon.sharepoint.com/sites/TackAnalysis/SitePages/TaktTimeStudy.aspx
 // @match        https://amazon.sharepoint.com/sites/TackAnalysis/SitePages/InferredAnalysis.aspx
 // @match        https://amazon.sharepoint.com/sites/TackAnalysis/SitePages/CollabHome.aspx
 // @match        https://amazon.sharepoint.com/sites/TackAnalysis/SitePages/OB-Planner.aspx
-// @run-at       document-start
+// @match        https://iad.alps-basecamp.lamps.amazon.dev/SNA4/*
+// @match        http://connrand-dev.aka.corp.amazon.com:3000/SNA4/kiosk/facilities/pit_red_tags*
+// @run-at       document-idle
 // @grant        GM_addStyle
 // @grant        GM_xmlhttpRequest
 // @grant        GM_getValue
@@ -30,18 +32,83 @@
 (function () {
   'use strict';
 
-  var BOOT_VERSION = '2.6';
+  var BOOT_VERSION = '2.7';
   var APP_NAME = 'SNA4 Data Analytics';
 
   var SP_BASE = 'https://amazon.sharepoint.com/sites/TackAnalysis';
   var FILE_BASE = SP_BASE + '/SNA4_UI';
 
+
   // ══════════════════════════════════════════════════════════
-  //  PAGE MAP
+  //  ALPS BACKGROUND TAB — EARLY EXIT
   //
-  //  files.html  — single string (one HTML shell per page)
-  //  files.css   — string OR array (loaded in order)
-  //  files.js    — string OR array (executed in order)
+  //  When the dashboard opens a background ALPS tab, this
+  //  bootloader activates there too. We ONLY need to load
+  //  obplanner.js (which contains the scraper). It will
+  //  detect isAlps=true, scrape, upload to SP, and close.
+  //
+  //  We must NOT nuke the ALPS page or inject dashboard UI.
+  // ══════════════════════════════════════════════════════════
+
+  var isAlpsDomain = window.location.hostname.indexOf('alps-basecamp') !== -1;
+
+  if (isAlpsDomain) {
+    // Only act on plan/daily pages triggered by our dashboard
+    if (window.location.href.indexOf('plan/daily') === -1) return;
+
+    var request = GM_getValue('wd_request', null);
+    var isTriggered = request && (Date.now() - request.timestamp < 60000);
+    if (!isTriggered) {
+      console.log('[SNA4 BOOT] ALPS page not triggered by dashboard — ignoring');
+      return;
+    }
+
+    console.log('[SNA4 BOOT] ALPS background tab detected — loading scraper only');
+
+    // Fetch ONLY the core JS (contains ALPS scraper)
+    GM_xmlhttpRequest({
+      method: 'GET',
+      url: FILE_BASE + '/obplanner/obplanner.js?_nocache=' + Date.now(),
+      headers: { 'Cache-Control': 'no-cache' },
+      timeout: 15000,
+      onload: function (res) {
+        if (res.status >= 200 && res.status < 400) {
+          try {
+            eval(res.responseText);
+            console.log('[SNA4 BOOT] ALPS scraper loaded and executing');
+          } catch (err) {
+            console.error('[SNA4 BOOT] ALPS scraper eval error:', err);
+            GM_setValue('wd_sp_status', {
+              timestamp: Date.now(),
+              status: 'sp-error',
+              error: 'Scraper load failed: ' + err.message
+            });
+          }
+        } else {
+          console.error('[SNA4 BOOT] Failed to fetch scraper:', res.status);
+          GM_setValue('wd_sp_status', {
+            timestamp: Date.now(),
+            status: 'sp-error',
+            error: 'Scraper fetch HTTP ' + res.status
+          });
+        }
+      },
+      onerror: function () {
+        console.error('[SNA4 BOOT] Network error fetching scraper');
+        GM_setValue('wd_sp_status', {
+          timestamp: Date.now(),
+          status: 'sp-error',
+          error: 'Scraper fetch network error'
+        });
+      }
+    });
+
+    return; // ← Don't run the rest of the bootloader on ALPS
+  }
+
+
+  // ══════════════════════════════════════════════════════════
+  //  PAGE MAP (rest of bootloader unchanged)
   // ══════════════════════════════════════════════════════════
 
   var PAGE_MAP = {
