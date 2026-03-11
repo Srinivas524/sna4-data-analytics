@@ -25,6 +25,7 @@
 // @connect      rodeo-iad.amazon.com
 // @connect      alps-iad.iad.proxy.amazon.com
 // @connect      api.ramdos.org
+// @connect      sspot.iad.corp.amazon.com
 // @updateURL    https://raw.githubusercontent.com/Srinivas524/sna4-data-analytics/main/sna4.user.js
 // @downloadURL  https://raw.githubusercontent.com/Srinivas524/sna4-data-analytics/main/sna4.user.js
 // ==/UserScript==
