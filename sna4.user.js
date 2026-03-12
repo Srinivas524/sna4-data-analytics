@@ -45,7 +45,7 @@
   //
   //  When the dashboard opens a background ALPS tab, this
   //  bootloader activates there too. We ONLY need to load
-  //  obplanner.js (which contains the scraper). It will
+  //  config + services (which contains the scraper). It will
   //  detect isAlps=true, scrape, upload to SP, and close.
   //
   //  We must NOT nuke the ALPS page or inject dashboard UI.
@@ -64,52 +64,72 @@
       return;
     }
 
-    console.log('[SNA4 BOOT] ALPS background tab detected — loading scraper only');
+    console.log('[SNA4 BOOT] ALPS background tab detected — loading config + services + core');
 
-    // Fetch ONLY the core JS (contains ALPS scraper)
-    GM_xmlhttpRequest({
-      method: 'GET',
-      url: FILE_BASE + '/obplanner/obplanner.js?_nocache=' + Date.now(),
-      headers: { 'Cache-Control': 'no-cache' },
-      timeout: 15000,
-      onload: function (res) {
-        if (res.status >= 200 && res.status < 400) {
+    // Fetch config, services, and core (core detects ALPS and runs scraper)
+    var alpsFiles = [
+      FILE_BASE + '/obplanner/obplanner-config.js',
+      FILE_BASE + '/obplanner/obplanner-services.js',
+      FILE_BASE + '/obplanner/obplanner-core.js'
+    ];
+
+    var alpsLoaded = 0;
+
+    function fetchAlpsFile(url) {
+      return new Promise(function (resolve, reject) {
+        GM_xmlhttpRequest({
+          method: 'GET',
+          url: url + '?_nocache=' + Date.now(),
+          headers: { 'Cache-Control': 'no-cache' },
+          timeout: 15000,
+          onload: function (res) {
+            if (res.status >= 200 && res.status < 400) {
+              resolve(res.responseText);
+            } else {
+              reject(new Error('HTTP ' + res.status + ' for ' + url));
+            }
+          },
+          onerror: function () { reject(new Error('Network error: ' + url)); },
+          ontimeout: function () { reject(new Error('Timeout: ' + url)); }
+        });
+      });
+    }
+
+    // Fetch all in parallel, execute in order
+    Promise.all(alpsFiles.map(function (url) { return fetchAlpsFile(url); }))
+      .then(function (results) {
+        for (var i = 0; i < results.length; i++) {
           try {
-            eval(res.responseText);
-            console.log('[SNA4 BOOT] ALPS scraper loaded and executing');
+            eval(results[i]);
+            alpsLoaded++;
+            console.log('[SNA4 BOOT] ALPS file ' + (i + 1) + '/' + alpsFiles.length + ' loaded');
           } catch (err) {
-            console.error('[SNA4 BOOT] ALPS scraper eval error:', err);
+            console.error('[SNA4 BOOT] ALPS file ' + (i + 1) + ' eval error:', err);
             GM_setValue('wd_sp_status', {
               timestamp: Date.now(),
               status: 'sp-error',
               error: 'Scraper load failed: ' + err.message
             });
+            return;
           }
-        } else {
-          console.error('[SNA4 BOOT] Failed to fetch scraper:', res.status);
-          GM_setValue('wd_sp_status', {
-            timestamp: Date.now(),
-            status: 'sp-error',
-            error: 'Scraper fetch HTTP ' + res.status
-          });
         }
-      },
-      onerror: function () {
-        console.error('[SNA4 BOOT] Network error fetching scraper');
+        console.log('[SNA4 BOOT] ALPS scraper loaded and executing (' + alpsLoaded + ' files)');
+      })
+      .catch(function (err) {
+        console.error('[SNA4 BOOT] Failed to fetch ALPS files:', err.message);
         GM_setValue('wd_sp_status', {
           timestamp: Date.now(),
           status: 'sp-error',
-          error: 'Scraper fetch network error'
+          error: 'Scraper fetch failed: ' + err.message
         });
-      }
-    });
+      });
 
     return; // ← Don't run the rest of the bootloader on ALPS
   }
 
 
   // ══════════════════════════════════════════════════════════
-  //  PAGE MAP (rest of bootloader unchanged)
+  //  PAGE MAP
   // ══════════════════════════════════════════════════════════
 
   var PAGE_MAP = {
@@ -153,7 +173,9 @@
           FILE_BASE + '/obplanner/obplanner-dock.css'
         ],
         js: [
-          FILE_BASE + '/obplanner/obplanner.js',
+          FILE_BASE + '/obplanner/obplanner-config.js',
+          FILE_BASE + '/obplanner/obplanner-services.js',
+          FILE_BASE + '/obplanner/obplanner-core.js',
           FILE_BASE + '/obplanner/obplanner-overall.js',
           FILE_BASE + '/obplanner/obplanner-pick.js',
           FILE_BASE + '/obplanner/obplanner-pack.js',
@@ -288,7 +310,6 @@
   }
 
   function fetchMultiple(urls) {
-    // Fetches all URLs in parallel, returns results in order
     return Promise.all(urls.map(function (url) {
       return fetchFile(url);
     }));
@@ -509,8 +530,6 @@
       console.log('[SNA4 BOOT] \u2705 CSS injected (shared + ' + pageCSSArr.length + ' page + chatbot)');
 
       // ── 2. Shared JS (common module) ───────────────────
-      // Only inject for pages that use it (non-obplanner)
-      // OB Planner is self-contained — doesn't need common.js
       var needsCommonJS = (CURRENT_PAGE !== 'obplanner');
 
       if (needsCommonJS) {
@@ -535,7 +554,7 @@
       document.body.innerHTML = pageHTML;
       console.log('[SNA4 BOOT] \u2705 Page HTML injected');
 
-      // ── 4. Page JS — execute IN ORDER (core first) ─────
+      // ── 4. Page JS — execute IN ORDER (config → services → core → tabs) ─────
       for (var ji = 0; ji < pageJSArr.length; ji++) {
         try {
           eval(pageJSArr[ji]);
