@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         SNA4 Data Analytics — Bootloader
 // @namespace    http://tampermonkey.net/
-// @version      2.7
+// @version      2.8
 // @description  Multi-page bootloader — hijacks SharePoint pages and loads SNA4 Data Analytics suite
 // @match        https://amazon.sharepoint.com/sites/TackAnalysis/SitePages/Home.aspx
 // @match        https://amazon.sharepoint.com/sites/TackAnalysis/SitePages/TaktTimeStudy.aspx
@@ -33,7 +33,7 @@
 (function () {
   'use strict';
 
-  var BOOT_VERSION = '2.7';
+  var BOOT_VERSION = '2.8';
   var APP_NAME = 'SNA4 Data Analytics';
 
   var SP_BASE = 'https://amazon.sharepoint.com/sites/TackAnalysis';
@@ -44,9 +44,8 @@
   //  ALPS BACKGROUND TAB — EARLY EXIT
   //
   //  When the dashboard opens a background ALPS tab, this
-  //  bootloader activates there too. We ONLY need to load
-  //  config + services (which contains the scraper). It will
-  //  detect isAlps=true, scrape, upload to SP, and close.
+  //  bootloader activates there too. We load config + services
+  //  (for SP helpers) + alps (scraper + early exit).
   //
   //  We must NOT nuke the ALPS page or inject dashboard UI.
   // ══════════════════════════════════════════════════════════
@@ -64,13 +63,13 @@
       return;
     }
 
-    console.log('[SNA4 BOOT] ALPS background tab detected — loading config + services + core');
+    console.log('[SNA4 BOOT] ALPS background tab detected — loading config + services + alps');
 
-    // Fetch config, services, and core (core detects ALPS and runs scraper)
+    // Config (constants) + Services (SP helpers) + Alps (scraper)
     var alpsFiles = [
       FILE_BASE + '/obplanner/obplanner-config.js',
       FILE_BASE + '/obplanner/obplanner-services.js',
-      FILE_BASE + '/obplanner/obplanner-core.js'
+      FILE_BASE + '/obplanner/obplanner-alps.js'
     ];
 
     var alpsLoaded = 0;
@@ -176,6 +175,7 @@
           FILE_BASE + '/obplanner/obplanner-config.js',
           FILE_BASE + '/obplanner/obplanner-services.js',
           FILE_BASE + '/obplanner/obplanner-core.js',
+          FILE_BASE + '/obplanner/obplanner-alps.js',
           FILE_BASE + '/obplanner/obplanner-overall.js',
           FILE_BASE + '/obplanner/obplanner-pick.js',
           FILE_BASE + '/obplanner/obplanner-pack.js',
@@ -554,7 +554,7 @@
       document.body.innerHTML = pageHTML;
       console.log('[SNA4 BOOT] \u2705 Page HTML injected');
 
-      // ── 4. Page JS — execute IN ORDER (config → services → core → tabs) ─────
+      // ── 4. Page JS — execute IN ORDER (config → services → core → alps → tabs) ─────
       for (var ji = 0; ji < pageJSArr.length; ji++) {
         try {
           eval(pageJSArr[ji]);
