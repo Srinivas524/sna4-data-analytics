@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         SNA4 Data Analytics — Bootloader
 // @namespace    http://tampermonkey.net/
-// @version      3.0
+// @version      3.1
 // @description  Thin bootloader stub — loads private config from SharePoint
 // @match        https://amazon.sharepoint.com/sites/TackAnalysis/SitePages/*
 // @match        https://iad.alps-basecamp.lamps.amazon.dev/SNA4/*
@@ -31,17 +31,30 @@
 
   var CONFIG_URL = 'https://amazon.sharepoint.com/sites/TackAnalysis/SNA4_UI/boot-config.js';
 
+  // ══════════════════════════════════════════════════════════
+  //  ALPS / KIOSK DOMAIN DETECTION — BEFORE ANY DOM CHANGES
+  //
+  //  ⚠️ CRITICAL: On ALPS pages we must NOT touch the DOM.
+  //  The ALPS React app must remain intact so the scraper
+  //  can read the rendered table. Any innerHTML replacement
+  //  or style changes will destroy the SPA.
+  // ══════════════════════════════════════════════════════════
+
+  var isAlpsDomain  = window.location.hostname.indexOf('alps-basecamp') !== -1;
+  var isKioskDomain = window.location.hostname.indexOf('connrand-dev') !== -1;
+  var isDashboard   = !isAlpsDomain && !isKioskDomain;
+
   // ── Expose GM APIs for the private config to use ───────
   window.__SNA4_GM = {
     xmlhttp:   GM_xmlhttpRequest,
     addStyle:  GM_addStyle,
     getValue:  GM_getValue,
-    setValue:   GM_setValue,
+    setValue:  GM_setValue,
     openInTab: GM_openInTab
   };
 
-  // ── Minimal loading indicator ──────────────────────────
-  if (document.body) {
+  // ── Loading indicator — ONLY on SharePoint dashboard pages ──
+  if (isDashboard && document.body) {
     document.body.style.cssText = 'margin:0;padding:0;background:#0f172a;';
     document.body.innerHTML =
       '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;gap:16px;">' +
@@ -49,6 +62,14 @@
         '<div style="color:#64748b;font-family:system-ui;font-size:13px;">Initializing SNA4...</div>' +
       '</div>' +
       '<style>@keyframes s{to{transform:rotate(360deg)}}</style>';
+  }
+
+  if (isAlpsDomain) {
+    console.log('[SNA4 STUB] ALPS domain detected — fetching config without touching DOM');
+  }
+
+  if (isKioskDomain) {
+    console.log('[SNA4 STUB] Kiosk domain detected — fetching config without touching DOM');
   }
 
   // ── Fetch private boot config from SharePoint ──────────
@@ -63,27 +84,35 @@
         // ── Origin validation ────────────────────────────
         if (res.finalUrl &&
             res.finalUrl.indexOf('amazon.sharepoint.com') === -1) {
-          showError('Security Error', 'Config origin mismatch — possible redirect');
+          if (isDashboard) showError('Security Error', 'Config origin mismatch — possible redirect');
           return;
         }
 
         // ── Signature check ─────────────────────────────
         if (res.responseText.indexOf('// SNA4-CONFIG-V') !== 0) {
-          showError('Integrity Error', 'Config file signature missing or invalid');
+          if (isDashboard) showError('Integrity Error', 'Config file signature missing or invalid');
           return;
         }
 
         try {
           eval(res.responseText);
         } catch (err) {
-          showError('Config Execution Failed', err.message);
+          console.error('[SNA4 STUB] Config eval error:', err);
+          if (isDashboard) showError('Config Execution Failed', err.message);
         }
       } else {
-        showError('Config Load Failed', 'HTTP ' + res.status);
+        console.error('[SNA4 STUB] Config fetch HTTP ' + res.status);
+        if (isDashboard) showError('Config Load Failed', 'HTTP ' + res.status);
       }
     },
-    onerror:   function () { showError('Network Error', 'Cannot reach SharePoint — are you on VPN?'); },
-    ontimeout: function () { showError('Timeout', 'SharePoint did not respond within 20 seconds'); }
+    onerror: function () {
+      console.error('[SNA4 STUB] Network error fetching config');
+      if (isDashboard) showError('Network Error', 'Cannot reach SharePoint — are you on VPN?');
+    },
+    ontimeout: function () {
+      console.error('[SNA4 STUB] Config fetch timeout');
+      if (isDashboard) showError('Timeout', 'SharePoint did not respond within 20 seconds');
+    }
   });
 
   function showError(title, msg) {
@@ -98,7 +127,7 @@
           '<button onclick="location.reload()" style="padding:9px 22px;border-radius:9px;border:none;' +
           'background:#6366f1;color:white;font-weight:700;cursor:pointer;font-size:13px;">Retry</button>' +
         '</div>' +
-        '<div style="color:#475569;font-size:10px;margin-top:8px;">Stub v3.0</div>' +
+        '<div style="color:#475569;font-size:10px;margin-top:8px;">Stub v3.1</div>' +
       '</div>';
   }
 
