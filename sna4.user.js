@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         SNA4 Data Analytics — Bootloader
 // @namespace    http://tampermonkey.net/
-// @version      3.2
+// @version      3.3
 // @description  Thin bootloader stub — loads private config from SharePoint
 // @match        https://amazon.sharepoint.com/sites/TackAnalysis/SitePages/Home.aspx
 // @match        https://amazon.sharepoint.com/sites/TackAnalysis/SitePages/TaktTimeStudy.aspx
@@ -60,15 +60,16 @@
     openInTab: GM_openInTab
   };
 
-  // ── Loading indicator — ONLY on SharePoint dashboard ───
+  // ── Dashboard — background + subtle hint, NO full spinner ──
+  //  boot-config.js will show its own detailed loading screen.
+  //  This eliminates one full innerHTML wipe.
+  //  The version tag helps debugging stuck screens.
   if (isDashboard && document.body) {
     document.body.style.cssText = 'margin:0;padding:0;background:#0f172a;';
     document.body.innerHTML =
-      '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;gap:16px;">' +
-        '<div style="width:40px;height:40px;border:3px solid rgba(99,102,241,0.2);border-top-color:#6366f1;border-radius:50%;animation:s 1s linear infinite;"></div>' +
-        '<div style="color:#64748b;font-family:system-ui;font-size:13px;">Initializing SNA4...</div>' +
-      '</div>' +
-      '<style>@keyframes s{to{transform:rotate(360deg)}}</style>';
+      '<div style="position:fixed;bottom:20px;right:20px;' +
+      'color:#334155;font-family:system-ui;font-size:11px;">' +
+      'SNA4 v3.3</div>';
   }
 
   if (isAlpsDomain) {
@@ -135,7 +136,7 @@
           '<button onclick="location.reload()" style="padding:9px 22px;border-radius:9px;border:none;' +
           'background:#6366f1;color:white;font-weight:700;cursor:pointer;font-size:13px;">Retry</button>' +
         '</div>' +
-        '<div style="color:#475569;font-size:10px;margin-top:8px;">Stub v3.2</div>' +
+        '<div style="color:#475569;font-size:10px;margin-top:8px;">Stub v3.3</div>' +
       '</div>';
   }
 
