@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         SNA4 Data Analytics — Bootloader
 // @namespace    http://tampermonkey.net/
-// @version      3.4
+// @version      3.5
 // @description  Thin bootloader stub — loads private config from SharePoint
 // @match        https://amazon.sharepoint.com/sites/TackAnalysis/SitePages/Home.aspx
 // @match        https://amazon.sharepoint.com/sites/TackAnalysis/SitePages/TaktTimeStudy.aspx
@@ -10,7 +10,7 @@
 // @match        https://amazon.sharepoint.com/sites/TackAnalysis/SitePages/OB-Planner.aspx
 // @match        https://iad.alps-basecamp.lamps.amazon.dev/SNA4/*
 // @match        http://connrand-dev.aka.corp.amazon.com:3000/SNA4/kiosk/facilities/pit_red_tags*
-// @run-at       document-start                                              // ← CHANGED from document-idle
+// @run-at       document-start
 // @grant        GM_addStyle
 // @grant        GM_xmlhttpRequest
 // @grant        GM_getValue
@@ -33,28 +33,29 @@
 (function () {
   'use strict';
 
-  // ══════════════════════════════════════════════════════════  // ← NEW — entire block
-  //  SHAREPOINT FRAMEWORK KILL SWITCH
+  // ══════════════════════════════════════════════════════════
+  //  SHAREPOINT FRAMEWORK SUPPRESSOR (Firefox-safe)
   //
-  //  Runs at document-start, BEFORE any SP scripts parse.
-  //  window.stop() cancels every pending resource load:
-  //    • sp-pages-assembly (~800 KB)
-  //    • suiteux.shell framework
-  //    • search-page-bootstrapper
-  //    • 1759 icon registrations
-  //    • Suite nav, search box, OneShell
+  //  window.stop() kills Tampermonkey's execution context in
+  //  Firefox, so instead we inject an early <style> that:
+  //    • Sets background to dark immediately (no SP flash)
+  //    • Hides all body children (SP UI never visible)
   //
-  //  We then replace the documentElement with a clean shell
-  //  so our boot-config loads into a zero-overhead page.
+  //  Boot-config handles the real cleanup:
+  //    • SP DOM blocker (MutationObserver strips link/style/script)
+  //    • boot() wipes <head> and <body> completely
+  //    • Leak cleaner catches any stragglers
+  //
+  //  SP framework still downloads (~800KB) but never renders.
+  //  No visual difference to the user.
   // ══════════════════════════════════════════════════════════
   if (window.location.hostname.indexOf('amazon.sharepoint.com') !== -1 &&
       window.location.pathname.toLowerCase().indexOf('/sitepages/') !== -1) {
 
-    window.stop();                                                           // ← NEW — abort all pending loads
-
-    document.documentElement.innerHTML =                                     // ← NEW — clean slate
-        '<head><meta charset="utf-8"><title>SNA4 Data Analytics</title></head>' +
-        '<body style="margin:0;padding:0;background:#0f172a;"></body>';
+    var earlyStyle = document.createElement('style');
+    earlyStyle.textContent = 'html, body { background: #0f172a !important; } ' +
+                             'body > * { display: none !important; }';
+    (document.head || document.documentElement).appendChild(earlyStyle);
   }
   // ══════════════════════════════════════════════════════════
 
@@ -86,14 +87,14 @@
   };
 
   // ── Dashboard — version watermark ─────────────────────
-  //  SP framework is already dead, so document.body exists
-  //  from our innerHTML replacement above. We just add the
-  //  subtle version tag. boot-config.js owns the real UI.
+  //  Early style hides SP content. We add a subtle version
+  //  tag that boot-config.js will replace with the real UI.
   if (isDashboard && document.body) {
-    document.body.innerHTML =
-      '<div style="position:fixed;bottom:20px;right:20px;' +
-      'color:#334155;font-family:system-ui;font-size:11px;">' +
-      'SNA4 v3.4</div>';                                                    // ← CHANGED version tag
+    var versionTag = document.createElement('div');
+    versionTag.style.cssText = 'position:fixed;bottom:20px;right:20px;' +
+      'color:#334155;font-family:system-ui;font-size:11px;z-index:999999;';
+    versionTag.textContent = 'SNA4 v3.5';
+    document.body.appendChild(versionTag);
   }
 
   if (isAlpsDomain) {
@@ -160,7 +161,7 @@
           '<button onclick="location.reload()" style="padding:9px 22px;border-radius:9px;border:none;' +
           'background:#6366f1;color:white;font-weight:700;cursor:pointer;font-size:13px;">Retry</button>' +
         '</div>' +
-        '<div style="color:#475569;font-size:10px;margin-top:8px;">Stub v3.4</div>' +   // ← CHANGED version
+        '<div style="color:#475569;font-size:10px;margin-top:8px;">Stub v3.5</div>' +
       '</div>';
   }
 
