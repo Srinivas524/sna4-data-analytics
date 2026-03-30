@@ -1,13 +1,9 @@
 // ==UserScript==
 // @name         SNA4 Data Analytics — Bootloader
 // @namespace    http://tampermonkey.net/
-// @version      3.5
+// @version      3.6
 // @description  Thin bootloader stub — loads private config from SharePoint
-// @match        https://amazon.sharepoint.com/sites/TackAnalysis/SitePages/Home.aspx
-// @match        https://amazon.sharepoint.com/sites/TackAnalysis/SitePages/TaktTimeStudy.aspx
-// @match        https://amazon.sharepoint.com/sites/TackAnalysis/SitePages/InferredAnalysis.aspx
-// @match        https://amazon.sharepoint.com/sites/TackAnalysis/SitePages/CollabHome.aspx
-// @match        https://amazon.sharepoint.com/sites/TackAnalysis/SitePages/OB-Planner.aspx
+// @match        https://amazon.sharepoint.com/sites/TackAnalysis/SitePages/*
 // @match        https://iad.alps-basecamp.lamps.amazon.dev/SNA4/*
 // @match        http://connrand-dev.aka.corp.amazon.com:3000/SNA4/kiosk/facilities/pit_red_tags*
 // @run-at       document-start
