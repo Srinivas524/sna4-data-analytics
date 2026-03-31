@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         SNA4 Data Analytics — Bootloader
 // @namespace    http://tampermonkey.net/
-// @version      3.6
+// @version      3.5
 // @description  Thin bootloader stub — loads private config from SharePoint
 // @match        https://amazon.sharepoint.com/sites/TackAnalysis/SitePages/Home.aspx
 // @match        https://amazon.sharepoint.com/sites/TackAnalysis/SitePages/TaktTimeStudy.aspx
@@ -26,7 +26,6 @@
 // @connect      alps-iad.iad.proxy.amazon.com
 // @connect      prod-pdx.yinliy.people.amazon.dev
 // @connect      sspot.iad.corp.amazon.com
-// @connect      sort.aka.amazon.com
 // @updateURL    https://raw.githubusercontent.com/Srinivas524/sna4-data-analytics/main/sna4.user.js
 // @downloadURL  https://raw.githubusercontent.com/Srinivas524/sna4-data-analytics/main/sna4.user.js
 // ==/UserScript==
