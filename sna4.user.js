@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         SNA4 Data Analytics — Bootloader
 // @namespace    http://tampermonkey.net/
-// @version      3.6
+// @version      4.5
 // @description  Thin bootloader stub — loads private config from SharePoint
 // @match        https://amazon.sharepoint.com/sites/TackAnalysis/SitePages/Home.aspx
 // @match        https://amazon.sharepoint.com/sites/TackAnalysis/SitePages/TaktTimeStudy.aspx
@@ -27,6 +27,7 @@
 // @connect      prod-pdx.yinliy.people.amazon.dev
 // @connect      sspot.iad.corp.amazon.com
 // @connect      sort.aka.amazon.com
+// @connect      process-path.na.picking.aft.a2z.com
 // @updateURL    https://raw.githubusercontent.com/Srinivas524/sna4-data-analytics/main/sna4.user.js
 // @downloadURL  https://raw.githubusercontent.com/Srinivas524/sna4-data-analytics/main/sna4.user.js
 // ==/UserScript==
@@ -94,7 +95,7 @@
     var versionTag = document.createElement('div');
     versionTag.style.cssText = 'position:fixed;bottom:20px;right:20px;' +
       'color:#334155;font-family:system-ui;font-size:11px;z-index:999999;';
-    versionTag.textContent = 'SNA4 v3.5';
+    versionTag.textContent = 'SNA4 v4.5';
     document.body.appendChild(versionTag);
   }
 
@@ -162,8 +163,9 @@
           '<button onclick="location.reload()" style="padding:9px 22px;border-radius:9px;border:none;' +
           'background:#6366f1;color:white;font-weight:700;cursor:pointer;font-size:13px;">Retry</button>' +
         '</div>' +
-        '<div style="color:#475569;font-size:10px;margin-top:8px;">Stub v3.5</div>' +
+        '<div style="color:#475569;font-size:10px;margin-top:8px;">Stub v4.5</div>' +
       '</div>';
   }
 
 })();
+
