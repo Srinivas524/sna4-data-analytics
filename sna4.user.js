@@ -3,11 +3,11 @@
 // @namespace    http://tampermonkey.net/
 // @version      4.5
 // @description  Thin bootloader stub — loads private config from SharePoint
-// @match        https://amazon.sharepoint.com/sites/TackAnalysis/SitePages/Home.aspx*
-// @match        https://amazon.sharepoint.com/sites/TackAnalysis/SitePages/TaktTimeStudy.aspx*
-// @match        https://amazon.sharepoint.com/sites/TackAnalysis/SitePages/InferredAnalysis.aspx*
-// @match        https://amazon.sharepoint.com/sites/TackAnalysis/SitePages/CollabHome.aspx*
-// @match        https://amazon.sharepoint.com/sites/TackAnalysis/SitePages/OB-Planner.aspx*
+// @match        https://amazon.sharepoint.com/sites/TackAnalysis/SitePages/Home.aspx
+// @match        https://amazon.sharepoint.com/sites/TackAnalysis/SitePages/TaktTimeStudy.aspx
+// @match        https://amazon.sharepoint.com/sites/TackAnalysis/SitePages/InferredAnalysis.aspx
+// @match        https://amazon.sharepoint.com/sites/TackAnalysis/SitePages/CollabHome.aspx
+// @match        https://amazon.sharepoint.com/sites/TackAnalysis/SitePages/OB-Planner.aspx
 // @match        https://iad.alps-basecamp.lamps.amazon.dev/SNA4/*
 // @match        http://connrand-dev.aka.corp.amazon.com:3000/SNA4/kiosk/facilities/pit_red_tags*
 // @run-at       document-start
@@ -28,6 +28,7 @@
 // @connect      sspot.iad.corp.amazon.com
 // @connect      sort.aka.amazon.com
 // @connect      process-path.na.picking.aft.a2z.com
+// @connect      throughput-iad.iad.proxy.amazon.com
 // @updateURL    https://raw.githubusercontent.com/Srinivas524/sna4-data-analytics/main/sna4.user.js
 // @downloadURL  https://raw.githubusercontent.com/Srinivas524/sna4-data-analytics/main/sna4.user.js
 // ==/UserScript==
@@ -168,4 +169,3 @@
   }
 
 })();
-
