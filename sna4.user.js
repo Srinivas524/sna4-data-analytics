@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         SNA4 Data Analytics — Bootloader
 // @namespace    http://tampermonkey.net/
-// @version      4.5
+// @version      4.6
 // @description  Thin bootloader stub — loads private config from SharePoint
 // @match        https://amazon.sharepoint.com/sites/TackAnalysis/SitePages/Home.aspx
 // @match        https://amazon.sharepoint.com/sites/TackAnalysis/SitePages/TaktTimeStudy.aspx
@@ -96,7 +96,7 @@
     var versionTag = document.createElement('div');
     versionTag.style.cssText = 'position:fixed;bottom:20px;right:20px;' +
       'color:#334155;font-family:system-ui;font-size:11px;z-index:999999;';
-    versionTag.textContent = 'SNA4 v4.5';
+    versionTag.textContent = 'SNA4 v4.6';
     document.body.appendChild(versionTag);
   }
 
