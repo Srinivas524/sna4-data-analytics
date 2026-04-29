@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         SNA4 Data Analytics — Bootloader
 // @namespace    http://tampermonkey.net/
-// @version      4.6
+// @version      4.7
 // @description  Thin bootloader stub — loads private config from SharePoint
 // @match        https://amazon.sharepoint.com/sites/TackAnalysis/SitePages/Home.aspx
 // @match        https://amazon.sharepoint.com/sites/TackAnalysis/SitePages/TaktTimeStudy.aspx
@@ -28,6 +28,7 @@
 // @connect      sspot.iad.corp.amazon.com
 // @connect      sort.aka.amazon.com
 // @connect      process-path.na.picking.aft.a2z.com
+// @connect      picking-console.na.picking.aft.a2z.com
 // @connect      throughput-iad.iad.proxy.amazon.com
 // @updateURL    https://raw.githubusercontent.com/Srinivas524/sna4-data-analytics/main/sna4.user.js
 // @downloadURL  https://raw.githubusercontent.com/Srinivas524/sna4-data-analytics/main/sna4.user.js
@@ -164,7 +165,7 @@
           '<button onclick="location.reload()" style="padding:9px 22px;border-radius:9px;border:none;' +
           'background:#6366f1;color:white;font-weight:700;cursor:pointer;font-size:13px;">Retry</button>' +
         '</div>' +
-        '<div style="color:#475569;font-size:10px;margin-top:8px;">Stub v4.5</div>' +
+        '<div style="color:#475569;font-size:10px;margin-top:8px;">Stub v4.6</div>' +
       '</div>';
   }
 
